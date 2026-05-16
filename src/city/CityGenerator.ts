@@ -387,8 +387,11 @@ export class CityGenerator {
 
       const signW = rand(8, 22)
       const signH = rand(4, 11)
-      // Place within lower section (bottom 60% of building height)
-      const signY = rand(signH * 0.5 + 2, h * 0.58 - signH * 0.5)
+      // Keep signs at street-visible height (camera at Y=8-12 during city traversal)
+      const maxY = Math.min(h * 0.45, 28)
+      const minY = signH * 0.5 + 1
+      if (maxY < minY) continue  // skip very short buildings
+      const signY = rand(minY, maxY)
 
       const face = Math.floor(Math.random() * 4)
       let px = wx, pz = wz, angle = 0
