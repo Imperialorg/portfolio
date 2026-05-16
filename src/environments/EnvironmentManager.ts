@@ -5,6 +5,7 @@ import { ChipSurfaceEnv } from './ChipSurfaceEnv'
 import { WebRTCEnv } from './WebRTCEnv'
 import { NeuralNetEnv } from './NeuralNetEnv'
 import { PowerGridEnv } from './PowerGridEnv'
+import { PanelEnv } from './PanelEnv'
 
 // Sections that need the city hidden (underground or macro close-up)
 const HIDE_CITY_SECTIONS = new Set([2, 3])
@@ -31,6 +32,22 @@ export class EnvironmentManager {
       env.create(scene)
       env.group.visible = false
       this.envs.set(idx, env)
+    }
+
+    // PanelEnv for sections without dedicated environments
+    const panelMap: [number, number, THREE.Vector3][] = [
+      [5,   3, new THREE.Vector3(40, 25, -110)],   // Selkies
+      [8,   6, new THREE.Vector3(70, 14, 50)],     // VidyaMitra
+      [9,   7, new THREE.Vector3(20, 12, 80)],     // Netflip
+      [10,  8, new THREE.Vector3(-20, 16, 70)],    // Arena
+      [11,  9, new THREE.Vector3(-10, 40, 40)],    // Hackathon
+    ]
+
+    for (const [sectionIdx, projIdx, panelPos] of panelMap) {
+      const env = new PanelEnv(projIdx, panelPos)
+      env.create(scene)
+      env.group.visible = false
+      this.envs.set(sectionIdx, env)
     }
   }
 

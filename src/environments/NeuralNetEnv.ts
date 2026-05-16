@@ -3,43 +3,8 @@ import { Environment, makeFloatingLabel, showProjectPanel } from './Environment'
 import { PROJECTS } from '../sections/data'
 
 // Section 6 — Oris AI
-// Neural network hologram: sphere nodes, animated activation edges, anomaly detection, log stream
+// Neural network hologram: InstancedMesh sphere nodes, animated activation edges, anomaly detection, log stream
 const CENTER = new THREE.Vector3(95, 40, -90)
-
-// ── vertex: passes nodeId + activation to fragment ──────────────────────────
-const NODE_VERT = `
-attribute float aNodeId;
-attribute float aActivation;
-varying float vActivation;
-varying float vIsAnomaly;
-uniform int uAnomalyNode;
-uniform float uTime;
-void main() {
-  vActivation = aActivation;
-  vIsAnomaly = float(int(aNodeId) == uAnomalyNode ? 1 : 0);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = 40.0 + 24.0 * vActivation + 20.0 * vIsAnomaly;
-}
-`
-const NODE_FRAG = `
-uniform float uTime;
-uniform float uVisible;
-varying float vActivation;
-varying float vIsAnomaly;
-void main() {
-  vec2 uv = gl_PointCoord - 0.5;
-  float d = length(uv);
-  if (d > 0.5) discard;
-  float ring  = 1.0 - smoothstep(0.30, 0.50, d);
-  float inner = 1.0 - smoothstep(0.05, 0.20, d);
-  float pulse = 0.7 + 0.3 * sin(uTime * 3.0 + vActivation * 6.28);
-  vec3 normalCol  = mix(vec3(0.4, 0.05, 0.9), vec3(0.9, 0.3, 1.0), vActivation);
-  float resolved  = 0.5 + 0.5 * sin(uTime * 2.5);
-  vec3 anomalyCol = mix(vec3(1.0, 0.05, 0.1), vec3(0.0, 1.0, 0.5), resolved);
-  vec3 col = mix(normalCol, anomalyCol, vIsAnomaly);
-  float alpha = (ring * 0.6 + inner * 1.2) * pulse * uVisible;
-  gl_FragColor = vec4(col * (ring * 1.5 + inner * 2.5), alpha);
-}`
 
 // ── edge shaders: activation pulses traveling along connections ──────────────
 const EDGE_VERT = `
@@ -81,7 +46,13 @@ void main() {
 `
 
 export class NeuralNetEnv extends Environment {
-  private nodeMat!: THREE.ShaderMaterial
+  private coreNodes!: THREE.InstancedMesh
+  private glowNodes!: THREE.InstancedMesh
+  private coreMat!: THREE.MeshBasicMaterial
+  private glowMat!: THREE.MeshBasicMaterial
+  private activations = new Float32Array(40)
+  private nodePositions: THREE.Vector3[] = []
+  private anomalyNode = -1
   private edgeMat!: THREE.ShaderMaterial
   private floorMat!: THREE.ShaderMaterial
   private logTexture!: THREE.CanvasTexture
@@ -90,7 +61,6 @@ export class NeuralNetEnv extends Environment {
   private logLines: string[] = []
   private logTimer = 0
   private anomalyTimer = 0
-  private currentAnomaly = -1
 
   private static LOG_POOL = [
     'INFO  processing log batch #4821',
@@ -120,37 +90,34 @@ export class NeuralNetEnv extends Environment {
     this.group.add(floor)
     this.floorMat = floorMat
 
-    // 5 layers × 8 nodes
+    // 5 layers × 8 nodes = 40 nodes as real 3D spheres
     const LAYERS = 5, NPL = 8
-    const nodePositions: THREE.Vector3[] = []
-    const nodeIds      = new Float32Array(LAYERS * NPL)
-    const activations  = new Float32Array(LAYERS * NPL)
 
     for (let l = 0; l < LAYERS; l++) {
       for (let n = 0; n < NPL; n++) {
         const idx = l * NPL + n
-        nodePositions.push(new THREE.Vector3(
-          CENTER.x + (l - 2) * 8.0,
-          CENTER.y + (n - NPL / 2 + 0.5) * 5.5,
+        this.activations[idx] = Math.random()
+        this.nodePositions.push(new THREE.Vector3(
+          CENTER.x + (l - 2) * 12.0,
+          CENTER.y + (n - NPL / 2 + 0.5) * 8.0,
           CENTER.z
         ))
-        nodeIds[idx]     = idx
-        activations[idx] = Math.random()
       }
     }
 
-    const posArr = new Float32Array(nodePositions.flatMap(p => [p.x, p.y, p.z]))
-    const nodeGeo = new THREE.BufferGeometry()
-    nodeGeo.setAttribute('position',    new THREE.BufferAttribute(posArr, 3))
-    nodeGeo.setAttribute('aNodeId',     new THREE.BufferAttribute(nodeIds, 1))
-    nodeGeo.setAttribute('aActivation', new THREE.BufferAttribute(activations, 1))
+    // Solid core spheres
+    const coreGeo = new THREE.SphereGeometry(1.4, 10, 8)
+    this.coreMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0 })
+    this.coreNodes = new THREE.InstancedMesh(coreGeo, this.coreMat, 40)
+    this.coreNodes.frustumCulled = false
+    this.group.add(this.coreNodes)
 
-    this.nodeMat = new THREE.ShaderMaterial({
-      vertexShader: NODE_VERT, fragmentShader: NODE_FRAG,
-      uniforms: { uTime: { value: 0 }, uVisible: { value: 0 }, uAnomalyNode: { value: -1 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    })
-    this.group.add(new THREE.Points(nodeGeo, this.nodeMat))
+    // Outer glow (larger sphere, additive)
+    const glowGeo = new THREE.SphereGeometry(3.2, 8, 6)
+    this.glowMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+    this.glowNodes = new THREE.InstancedMesh(glowGeo, this.glowMat, 40)
+    this.glowNodes.frustumCulled = false
+    this.group.add(this.glowNodes)
 
     // Edges between adjacent layers (~30% sampled for clarity)
     const edgePos: number[] = [], edgePhases: number[] = []
@@ -158,8 +125,8 @@ export class NeuralNetEnv extends Environment {
       for (let n = 0; n < NPL; n++) {
         for (let m = 0; m < NPL; m++) {
           if (Math.random() > 0.3) continue
-          const a = nodePositions[l * NPL + n]
-          const b = nodePositions[(l + 1) * NPL + m]
+          const a = this.nodePositions[l * NPL + n]
+          const b = this.nodePositions[(l + 1) * NPL + m]
           edgePos.push(a.x, a.y, a.z, b.x, b.y, b.z)
           const ph = Math.random()
           edgePhases.push(ph, ph)   // same phase for both endpoints of a segment
@@ -176,7 +143,9 @@ export class NeuralNetEnv extends Environment {
       uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     })
-    this.group.add(new THREE.LineSegments(edgeGeo, this.edgeMat))
+    const edges = new THREE.LineSegments(edgeGeo, this.edgeMat)
+    edges.frustumCulled = false
+    this.group.add(edges)
 
     // Title plate — makes the model instantly readable
     const titleCanvas = document.createElement('canvas')
@@ -247,9 +216,32 @@ export class NeuralNetEnv extends Environment {
   }
 
   update(t: number) {
-    this.nodeMat.uniforms.uTime.value = t
     this.edgeMat.uniforms.uTime.value = t
     this.floorMat.uniforms.uTime.value = t
+
+    // Update InstancedMesh node positions, scales, colors
+    const dummy = new THREE.Object3D()
+    for (let i = 0; i < 40; i++) {
+      const a = this.activations[i]
+      const pulse = 0.85 + 0.15 * Math.sin(t * 2.0 + i * 0.73)
+      const isAnomaly = i === this.anomalyNode ? 1.0 : 0.0
+      const scale = (0.8 + a * 0.7) * pulse * (1 + isAnomaly * 1.0)
+      dummy.position.copy(this.nodePositions[i])
+      dummy.scale.setScalar(scale)
+      dummy.updateMatrix()
+      this.coreNodes.setMatrixAt(i, dummy.matrix)
+      dummy.scale.setScalar(scale * 2.2)
+      dummy.updateMatrix()
+      this.glowNodes.setMatrixAt(i, dummy.matrix)
+      const hue = isAnomaly > 0 ? (Math.sin(t * 3) > 0 ? 0.0 : 0.33) : 0.75 + a * 0.12
+      const col = new THREE.Color().setHSL(hue, 1.0, 0.55 + a * 0.3)
+      this.coreNodes.setColorAt(i, col)
+      this.glowNodes.setColorAt(i, col)
+    }
+    this.coreNodes.instanceMatrix.needsUpdate = true
+    this.coreNodes.instanceColor!.needsUpdate = true
+    this.glowNodes.instanceMatrix.needsUpdate = true
+    this.glowNodes.instanceColor!.needsUpdate = true
 
     this.logTimer += 1 / 60
     if (this.logTimer > 0.75) {
@@ -259,23 +251,22 @@ export class NeuralNetEnv extends Environment {
     }
 
     this.anomalyTimer += 1 / 60
-    if (this.currentAnomaly === -1 && this.anomalyTimer > 5) {
+    if (this.anomalyNode === -1 && this.anomalyTimer > 5) {
       this.anomalyTimer = 0
-      this.currentAnomaly = Math.floor(Math.random() * 40)
-      this.nodeMat.uniforms.uAnomalyNode.value = this.currentAnomaly
-      this.logLines.push(`ERROR anomaly on node_${this.currentAnomaly}`)
+      this.anomalyNode = Math.floor(Math.random() * 40)
+      this.logLines.push(`ERROR anomaly on node_${this.anomalyNode}`)
       this.drawLog()
-    } else if (this.currentAnomaly !== -1 && this.anomalyTimer > 2.5) {
+    } else if (this.anomalyNode !== -1 && this.anomalyTimer > 2.5) {
       this.anomalyTimer = 0
-      this.logLines.push(`INFO  node_${this.currentAnomaly} resolved ✓`)
+      this.logLines.push(`INFO  node_${this.anomalyNode} resolved ✓`)
       this.drawLog()
-      this.currentAnomaly = -1
-      this.nodeMat.uniforms.uAnomalyNode.value = -1
+      this.anomalyNode = -1
     }
   }
 
   protected setVisible(v: number) {
-    this.nodeMat.uniforms.uVisible.value = v
+    this.coreMat.opacity = v
+    this.glowMat.opacity = v * 0.3
     this.edgeMat.uniforms.uVisible.value = v
     this.floorMat.uniforms.uVisible.value = v
     this.group.traverse(o => {

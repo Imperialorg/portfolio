@@ -117,35 +117,33 @@ const SECTION_META: [string, string][] = [
 const _banner = document.createElement('div')
 _banner.id = 'section-banner'
 Object.assign(_banner.style, {
-  position: 'fixed', top: '50%', left: '50%',
-  transform: 'translate(-50%, -50%)',
+  position: 'fixed', bottom: '24px', left: '50%',
+  transform: 'translateX(-50%)',
   textAlign: 'center', pointerEvents: 'none',
   zIndex: '50', opacity: '0', transition: 'opacity 0.4s',
+  background: 'rgba(0,0,8,0.65)', padding: '10px 28px',
+  borderTop: '1px solid currentColor',
 })
 document.body.appendChild(_banner)
 
-let _bannerTimeout = 0
 function showBanner(idx: number) {
   const [name, purpose] = SECTION_META[idx] ?? ['', '']
-  const neon = DISTRICT_COLORS[idx] ?? '#00f5ff'
+  const neon = DISTRICT_COLORS[idx] ? '#' + DISTRICT_COLORS[idx].getHexString() : '#00f5ff'
+  _banner.style.color = neon
   _banner.innerHTML = `
-    <div style="font-family:monospace;font-size:9px;letter-spacing:4px;color:${neon};margin-bottom:6px;text-transform:uppercase;opacity:0.7">
+    <div style="font-family:monospace;font-size:8px;letter-spacing:4px;color:${neon};margin-bottom:4px;text-transform:uppercase;opacity:0.7">
       DISTRICT_${String(idx).padStart(2,'0')}
     </div>
-    <div style="font-family:monospace;font-size:clamp(1.4rem,4vw,2.6rem);font-weight:900;color:#fff;
-                text-shadow:0 0 30px ${neon},0 0 60px ${neon}88;letter-spacing:0.08em;line-height:1.1">
+    <div style="font-family:monospace;font-size:1.1rem;font-weight:900;color:#fff;
+                text-shadow:0 0 20px ${neon},0 0 40px ${neon}88;letter-spacing:0.08em;line-height:1.1">
       ${name}
     </div>
-    <div style="font-family:monospace;font-size:clamp(0.7rem,1.8vw,0.95rem);color:${neon};
-                letter-spacing:0.15em;margin-top:8px;opacity:0.85">
+    <div style="font-family:monospace;font-size:0.75rem;color:${neon};
+                letter-spacing:0.15em;margin-top:4px;opacity:0.85">
       ${purpose}
     </div>
   `
   _banner.style.opacity = '1'
-  clearTimeout(_bannerTimeout)
-  _bannerTimeout = window.setTimeout(() => {
-    _banner.style.opacity = '0'
-  }, 2200)
 }
 
 // ──────────────────────────────────────────────────────────────
