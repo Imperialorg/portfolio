@@ -55,11 +55,11 @@ function cellToDistrict(ix: number, iz: number): number {
 }
 
 export class CityGenerator {
-  // 4 mesh types for visual variety
-  meshA!: THREE.InstancedMesh  // box skyscrapers (60%)
-  meshB!: THREE.InstancedMesh  // slim cylinder towers (20%)
-  meshC!: THREE.InstancedMesh  // wide slab buildings (20%)
-  meshD!: THREE.InstancedMesh  // needle towers (5% extra pass)
+  // Setback building sections (wider at base, narrowing upward)
+  sectionLow!: THREE.InstancedMesh  // lower body — full width, bottom 62% of height
+  sectionMid!: THREE.InstancedMesh  // middle section — 0.68x width, next 23%
+  sectionTop!: THREE.InstancedMesh  // top spire — 0.38x width, top 15%
+  meshD!: THREE.InstancedMesh       // needle towers (extra 5% pass)
   private mats: THREE.ShaderMaterial[] = []
 
   generate(scene: THREE.Scene) {
@@ -67,37 +67,34 @@ export class CityGenerator {
     const mat = makeShaderMaterial()
     this.mats.push(mat)
 
-    // ── Type A: Box skyscrapers ──────────────────────────
-    const geoA = new THREE.BoxGeometry(1, 1, 1)
-    const heightsA = new Float32Array(MAX)
-    const colorsA  = new Float32Array(MAX * 3)
-    geoA.setAttribute('aHeight',    new THREE.InstancedBufferAttribute(heightsA, 1))
-    geoA.setAttribute('aNeonColor', new THREE.InstancedBufferAttribute(colorsA, 3))
-    this.meshA = new THREE.InstancedMesh(geoA, mat.clone(), MAX)
-    this.meshA.frustumCulled = false
-    this.mats.push(this.meshA.material as THREE.ShaderMaterial)
+    // Helper to create a section InstancedMesh with shader attributes
+    const makeSection = (): {
+      geo: THREE.BoxGeometry
+      heights: Float32Array
+      colors: Float32Array
+      mesh: THREE.InstancedMesh
+    } => {
+      const geo = new THREE.BoxGeometry(1, 1, 1)
+      const heights = new Float32Array(MAX)
+      const colors  = new Float32Array(MAX * 3)
+      geo.setAttribute('aHeight',    new THREE.InstancedBufferAttribute(heights, 1))
+      geo.setAttribute('aNeonColor', new THREE.InstancedBufferAttribute(colors, 3))
+      const mesh = new THREE.InstancedMesh(geo, mat.clone(), MAX)
+      mesh.frustumCulled = false
+      return { geo, heights, colors, mesh }
+    }
 
-    // ── Type B: Cylinder towers ──────────────────────────
-    const geoB = new THREE.CylinderGeometry(0.45, 0.55, 1, 10)
-    const heightsB = new Float32Array(MAX)
-    const colorsB  = new Float32Array(MAX * 3)
-    geoB.setAttribute('aHeight',    new THREE.InstancedBufferAttribute(heightsB, 1))
-    geoB.setAttribute('aNeonColor', new THREE.InstancedBufferAttribute(colorsB, 3))
-    this.meshB = new THREE.InstancedMesh(geoB, mat.clone(), MAX)
-    this.meshB.frustumCulled = false
-    this.mats.push(this.meshB.material as THREE.ShaderMaterial)
+    const low = makeSection()
+    const mid = makeSection()
+    const top = makeSection()
+    this.sectionLow = low.mesh
+    this.sectionMid = mid.mesh
+    this.sectionTop = top.mesh
+    for (const m of [low.mesh, mid.mesh, top.mesh]) {
+      this.mats.push(m.material as THREE.ShaderMaterial)
+    }
 
-    // ── Type C: Wide slab buildings ──────────────────────
-    const geoC = new THREE.BoxGeometry(1, 0.4, 1)  // flat wide base shape
-    const heightsC = new Float32Array(MAX)
-    const colorsC  = new Float32Array(MAX * 3)
-    geoC.setAttribute('aHeight',    new THREE.InstancedBufferAttribute(heightsC, 1))
-    geoC.setAttribute('aNeonColor', new THREE.InstancedBufferAttribute(colorsC, 3))
-    this.meshC = new THREE.InstancedMesh(geoC, mat.clone(), MAX)
-    this.meshC.frustumCulled = false
-    this.mats.push(this.meshC.material as THREE.ShaderMaterial)
-
-    // ── Type D: Needle towers ────────────────────────────
+    // ── Needle towers ────────────────────────────────────
     const geoD = new THREE.BoxGeometry(1, 1, 1)
     const heightsD = new Float32Array(MAX)
     const colorsD  = new Float32Array(MAX * 3)
@@ -107,14 +104,14 @@ export class CityGenerator {
     this.meshD.frustumCulled = false
     this.mats.push(this.meshD.material as THREE.ShaderMaterial)
 
-    const mtx = new THREE.Matrix4()
-    const pos = new THREE.Vector3()
-    const scl = new THREE.Vector3()
+    const mtx  = new THREE.Matrix4()
+    const pos  = new THREE.Vector3()
+    const scl  = new THREE.Vector3()
     const quat = new THREE.Quaternion()
 
-    let cA = 0, cB = 0, cC = 0, cD = 0
+    let cLow = 0, cMid = 0, cTop = 0, cD = 0
 
-    // Rooftop glow disc instances (up to 200)
+    // Rooftop glow discs (up to 34 per color)
     const discGeo = new THREE.CylinderGeometry(1, 1, 0.3, 16)
     const discMeshes: THREE.InstancedMesh[] = []
     const DISC_COLORS = [0x00f5ff, 0xff00aa, 0xff6b1a, 0x7b2fff, 0x00ff88, 0xffe642]
@@ -149,43 +146,48 @@ export class CityGenerator {
         const fw = rand(BLOCK * 0.42, BLOCK * 0.9)
         const fd = rand(BLOCK * 0.42, BLOCK * 0.9)
 
-        const di = cellToDistrict(ix, iz)
+        const di   = cellToDistrict(ix, iz)
         const neon = DISTRICT_COLORS[di]
 
-        // Assign type by random roll
-        const roll = Math.random()
-        if (roll < 0.65) {
-          // Type A — box
-          heightsA[cA] = h
-          colorsA[cA*3]   = neon.r; colorsA[cA*3+1] = neon.g; colorsA[cA*3+2] = neon.b
-          pos.set(wx, h / 2, wz); scl.set(fw, h, fd)
+        // ── sectionLow: always ──────────────────────────
+        const lowH = h * 0.62
+        low.heights[cLow] = h
+        low.colors[cLow*3] = neon.r; low.colors[cLow*3+1] = neon.g; low.colors[cLow*3+2] = neon.b
+        pos.set(wx, lowH / 2, wz); scl.set(fw, lowH, fd)
+        mtx.compose(pos, quat, scl)
+        this.sectionLow.setMatrixAt(cLow, mtx); cLow++
+
+        // ── sectionMid: if h > 40 ───────────────────────
+        if (h > 40) {
+          const midH = h * 0.23
+          const midW = fw * 0.68
+          const midD = fd * 0.68
+          mid.heights[cMid] = h
+          mid.colors[cMid*3] = neon.r; mid.colors[cMid*3+1] = neon.g; mid.colors[cMid*3+2] = neon.b
+          pos.set(wx, h * 0.62 + midH / 2, wz); scl.set(midW, midH, midD)
           mtx.compose(pos, quat, scl)
-          this.meshA.setMatrixAt(cA, mtx); cA++
-        } else if (roll < 0.82) {
-          // Type B — cylinder
-          const r = rand(BLOCK * 0.18, BLOCK * 0.32)
-          heightsB[cB] = h
-          colorsB[cB*3]   = neon.r; colorsB[cB*3+1] = neon.g; colorsB[cB*3+2] = neon.b
-          pos.set(wx + rand(-3,3), h / 2, wz + rand(-3,3)); scl.set(r*2, h, r*2)
-          mtx.compose(pos, quat, scl)
-          this.meshB.setMatrixAt(cB, mtx); cB++
-        } else {
-          // Type C — wide slab
-          const slabH = Math.max(6, h * 0.35)
-          heightsC[cC] = slabH
-          colorsC[cC*3]   = neon.r; colorsC[cC*3+1] = neon.g; colorsC[cC*3+2] = neon.b
-          pos.set(wx, slabH / 2, wz); scl.set(fw * 1.4, slabH, fd * 1.4)
-          mtx.compose(pos, quat, scl)
-          this.meshC.setMatrixAt(cC, mtx); cC++
+          this.sectionMid.setMatrixAt(cMid, mtx); cMid++
         }
 
-        // Type D — needle tower (extra 5% pass, independent of main roll)
+        // ── sectionTop: if h > 100 ──────────────────────
+        if (h > 100) {
+          const topH = h * 0.15
+          const topW = fw * 0.38
+          const topD = fd * 0.38
+          top.heights[cTop] = h
+          top.colors[cTop*3] = neon.r; top.colors[cTop*3+1] = neon.g; top.colors[cTop*3+2] = neon.b
+          pos.set(wx, h * 0.85 + topH / 2, wz); scl.set(topW, topH, topD)
+          mtx.compose(pos, quat, scl)
+          this.sectionTop.setMatrixAt(cTop, mtx); cTop++
+        }
+
+        // ── Needle tower: extra 5% pass ──────────────────
         if (Math.random() >= 0.95) {
           const nfw = rand(1.5, 4)
           const nfd = rand(1.5, 4)
           const nh  = h * 1.8
           heightsD[cD] = nh
-          colorsD[cD*3]   = neon.r; colorsD[cD*3+1] = neon.g; colorsD[cD*3+2] = neon.b
+          colorsD[cD*3] = neon.r; colorsD[cD*3+1] = neon.g; colorsD[cD*3+2] = neon.b
           pos.set(wx + rand(-2, 2), nh / 2, wz + rand(-2, 2)); scl.set(nfw, nh, nfd)
           mtx.compose(pos, quat, scl)
           this.meshD.setMatrixAt(cD, mtx); cD++
@@ -207,12 +209,12 @@ export class CityGenerator {
       }
     }
 
-    this.meshA.count = cA
-    this.meshB.count = cB
-    this.meshC.count = cC
+    this.sectionLow.count = cLow
+    this.sectionMid.count = cMid
+    this.sectionTop.count = cTop
     this.meshD.count = cD
 
-    for (const mesh of [this.meshA, this.meshB, this.meshC, this.meshD]) {
+    for (const mesh of [this.sectionLow, this.sectionMid, this.sectionTop, this.meshD]) {
       mesh.instanceMatrix.needsUpdate = true
       const g = mesh.geometry
       ;(g.getAttribute('aHeight')    as THREE.BufferAttribute).needsUpdate = true
@@ -225,6 +227,190 @@ export class CityGenerator {
       discMeshes[i].count = discCounts[i]
       discMeshes[i].instanceMatrix.needsUpdate = true
       scene.add(discMeshes[i])
+    }
+  }
+
+  addFacadeSigns(scene: THREE.Scene) {
+    // Atlas: 512×384, 2 cols × 3 rows, each tile 256×128
+    const ATLAS_W = 512, ATLAS_H = 384
+    const TILE_W  = 256, TILE_H  = 128
+
+    const cvs = document.createElement('canvas')
+    cvs.width = ATLAS_W; cvs.height = ATLAS_H
+    const ctx = cvs.getContext('2d')!
+
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, ATLAS_W, ATLAS_H)
+
+    const drawTile = (
+      col: number, row: number,
+      draw: (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => void
+    ) => {
+      const tx = col * TILE_W, ty = row * TILE_H
+      ctx.save()
+      ctx.beginPath(); ctx.rect(tx, ty, TILE_W, TILE_H); ctx.clip()
+      draw(ctx, tx, ty, TILE_W, TILE_H)
+      ctx.restore()
+    }
+
+    // Style 1: Cyan circuit board
+    drawTile(0, 0, (c, x, y, w, h) => {
+      c.strokeStyle = '#00f5ff'; c.lineWidth = 1.5
+      for (let i = 0; i < 6; i++) {
+        const ly = y + 18 + i * 16
+        c.beginPath(); c.moveTo(x + 10, ly); c.lineTo(x + w - 10, ly); c.stroke()
+      }
+      c.fillStyle = '#00f5ff'
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 3; j++) {
+          const cx2 = x + 20 + i * 28, cy2 = y + 26 + j * 34
+          c.beginPath(); c.arc(cx2, cy2, 3, 0, Math.PI * 2); c.fill()
+          c.beginPath(); c.arc(cx2, cy2, 7, 0, Math.PI * 2); c.stroke()
+        }
+      }
+    })
+
+    // Style 2: Magenta WARNING + diagonal stripes
+    drawTile(1, 0, (c, x, y, w, h) => {
+      c.fillStyle = '#ff00aa22'; c.fillRect(x, y, w, h)
+      c.fillStyle = '#ff00aa44'
+      for (let i = -4; i < 14; i += 2) {
+        const sx = x + i * 24
+        c.beginPath()
+        c.moveTo(sx, y); c.lineTo(sx + 20, y)
+        c.lineTo(sx + 20 + h, y + h); c.lineTo(sx + h, y + h)
+        c.closePath(); c.fill()
+      }
+      c.fillStyle = '#ff00aa'; c.font = 'bold 26px monospace'; c.textAlign = 'center'
+      c.fillText('WARNING', x + w / 2, y + h / 2 + 9)
+      c.strokeStyle = '#ff00aa'; c.lineWidth = 2
+      c.strokeRect(x + 4, y + 4, w - 8, h - 8)
+    })
+
+    // Style 3: Orange/amber kanji-style block characters
+    drawTile(0, 1, (c, x, y, w, h) => {
+      c.fillStyle = '#ff6b1a'; c.font = 'bold 40px serif'; c.textAlign = 'center'
+      const chars = ['火', '電', '夜', '光']
+      chars.forEach((ch, i) => c.fillText(ch, x + 28 + i * 52, y + 82))
+      c.strokeStyle = '#ff6b1a88'; c.lineWidth = 1.5
+      c.strokeRect(x + 4, y + 4, w - 8, h - 8)
+    })
+
+    // Style 4: Green matrix grid
+    drawTile(1, 1, (c, x, y, w, h) => {
+      c.strokeStyle = '#00ff8844'; c.lineWidth = 1
+      for (let i = 0; i <= 16; i++) { const lx = x + i * (w / 16); c.beginPath(); c.moveTo(lx, y); c.lineTo(lx, y + h); c.stroke() }
+      for (let i = 0; i <= 8;  i++) { const ly = y + i * (h / 8);  c.beginPath(); c.moveTo(x, ly); c.lineTo(x + w, ly); c.stroke() }
+      c.fillStyle = '#00ff88'; c.font = '10px monospace'
+      for (let r = 0; r < 8; r++) {
+        for (let col = 0; col < 10; col++) {
+          if (Math.random() > 0.55) c.fillText(Math.random() > 0.5 ? '1' : '0', x + 5 + col * 24, y + 14 + r * 14)
+        }
+      }
+    })
+
+    // Style 5: Red triangle warning patterns
+    drawTile(0, 2, (c, x, y, w, h) => {
+      const tris: [number, number][] = [[0.15, 0.2], [0.5, 0.2], [0.85, 0.2], [0.32, 0.72], [0.68, 0.72]]
+      c.lineWidth = 2.5
+      tris.forEach(([tx2, ty2]) => {
+        const cx2 = x + tx2 * w, cy2 = y + ty2 * h, s = 22
+        c.fillStyle = '#ff224422'; c.strokeStyle = '#ff2244'
+        c.beginPath(); c.moveTo(cx2, cy2 - s); c.lineTo(cx2 + s, cy2 + s * 0.6); c.lineTo(cx2 - s, cy2 + s * 0.6); c.closePath()
+        c.fill(); c.stroke()
+        c.fillStyle = '#ff2244'; c.font = 'bold 14px monospace'; c.textAlign = 'center'
+        c.fillText('!', cx2, cy2 + s * 0.35)
+      })
+    })
+
+    // Style 6: Purple/violet abstract geometric
+    drawTile(1, 2, (c, x, y, w, h) => {
+      const cx2 = x + w / 2, cy2 = y + h / 2
+      c.strokeStyle = '#9b30ff'; c.lineWidth = 2
+      for (let r = 10; r < 58; r += 14) { c.beginPath(); c.arc(cx2, cy2, r, 0, Math.PI * 2); c.stroke() }
+      for (let a = 0; a < 6; a++) {
+        const angle = a * Math.PI / 3
+        c.beginPath(); c.moveTo(cx2, cy2); c.lineTo(cx2 + Math.cos(angle) * 56, cy2 + Math.sin(angle) * 56); c.stroke()
+      }
+      c.strokeStyle = '#cc44ff'; c.lineWidth = 1.5
+      c.strokeRect(x + 8, y + 8, w - 16, h - 16)
+    })
+
+    const atlas = new THREE.CanvasTexture(cvs)
+
+    // Build a PlaneGeometry with UVs pre-baked for the given atlas tile
+    const makeTileGeo = (col: number, row: number): THREE.PlaneGeometry => {
+      const geo  = new THREE.PlaneGeometry(1, 1)
+      const uMin = col * 0.5,         uMax = (col + 1) * 0.5
+      const vMin = 1.0 - (row + 1) / 3.0, vMax = 1.0 - row / 3.0
+      const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute
+      // PlaneGeometry vertex order: 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
+      uvAttr.setXY(0, uMin, vMax); uvAttr.setXY(1, uMax, vMax)
+      uvAttr.setXY(2, uMin, vMin); uvAttr.setXY(3, uMax, vMin)
+      uvAttr.needsUpdate = true
+      return geo
+    }
+
+    const signMat = new THREE.MeshBasicMaterial({
+      map: atlas, transparent: true,
+      side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
+    })
+
+    const SIGN_PER_MESH = 100
+    const signGeos   = [makeTileGeo(0, 0), makeTileGeo(1, 0), makeTileGeo(0, 1)]
+    const signMeshes = signGeos.map(geo => {
+      const m = new THREE.InstancedMesh(geo, signMat.clone(), SIGN_PER_MESH)
+      m.frustumCulled = false; m.count = 0
+      return m
+    })
+
+    const signCounts = [0, 0, 0]
+    const mtx2  = new THREE.Matrix4()
+    const pos2  = new THREE.Vector3()
+    const quat2 = new THREE.Quaternion()
+    const scl2  = new THREE.Vector3()
+    const yAxis = new THREE.Vector3(0, 1, 0)
+
+    for (let i = 0; i < SIGN_PER_MESH * 3; i++) {
+      const meshIdx = i % 3
+      const ci = signCounts[meshIdx]
+      if (ci >= SIGN_PER_MESH) continue
+
+      const ix = randInt(1, GRID - 2)
+      const iz = randInt(1, GRID - 2)
+      const wx = ix * CELL - HALF
+      const wz = iz * CELL - HALF
+      const nx = (ix / GRID) * 4 - 2
+      const nz = (iz / GRID) * 4 - 2
+      const hf = Math.max(0.18, 1 - Math.sqrt(nx * nx + nz * nz) / 3 * 0.6)
+      const h  = Math.max(8, (22 + fbm(nx, nz, 5) * 170) * hf) + rand(4, 28)
+      const fw = rand(BLOCK * 0.42, BLOCK * 0.9)
+      const fd = rand(BLOCK * 0.42, BLOCK * 0.9)
+
+      const signW = rand(8, 20)
+      const signH = rand(4, 10)
+      const signY = rand(4, h * 0.7)
+
+      // Place on one of 4 building faces
+      const face = Math.floor(Math.random() * 4)
+      let px = wx, pz = wz, angle = 0
+      if      (face === 0) { pz = wz + fd / 2 + 0.5; angle = 0 }
+      else if (face === 1) { pz = wz - fd / 2 - 0.5; angle = Math.PI }
+      else if (face === 2) { px = wx + fw / 2 + 0.5; angle = Math.PI / 2 }
+      else                 { px = wx - fw / 2 - 0.5; angle = -Math.PI / 2 }
+
+      pos2.set(px, signY, pz)
+      quat2.setFromAxisAngle(yAxis, angle)
+      scl2.set(signW, signH, 1)
+      mtx2.compose(pos2, quat2, scl2)
+      signMeshes[meshIdx].setMatrixAt(ci, mtx2)
+      signCounts[meshIdx]++
+    }
+
+    for (let i = 0; i < 3; i++) {
+      signMeshes[i].count = signCounts[i]
+      signMeshes[i].instanceMatrix.needsUpdate = true
+      scene.add(signMeshes[i])
     }
   }
 

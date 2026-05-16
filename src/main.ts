@@ -43,6 +43,7 @@ sky.create(scene)
 // ──────────────────────────────────────────────────────────────
 const city = new CityGenerator()
 city.generate(scene)
+city.addFacadeSigns(scene)
 city.addSearchlights(scene)
 // antennas removed — red bars cluttering skyline
 
@@ -248,7 +249,7 @@ window.addEventListener('keydown', (e) => {
 let wireframe = false
 function toggleWireframe() {
   wireframe = !wireframe
-  ;[city.meshA, city.meshB, city.meshC, city.meshD].forEach(m => {
+  ;[city.sectionLow, city.sectionMid, city.sectionTop, city.meshD].forEach(m => {
     const mat = m.material as THREE.ShaderMaterial
     mat.wireframe = wireframe
   })
