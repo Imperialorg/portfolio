@@ -237,7 +237,7 @@ runBoot()
 const raycaster = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
 window.addEventListener('click', (e) => {
-  // Don't raycast if clicking on HTML overlay
+  // Don't raycast if clicking on the detail panel itself
   if ((e.target as HTMLElement).closest('#env-detail-panel')) return
   mouse.x =  (e.clientX / innerWidth)  * 2 - 1
   mouse.y = -(e.clientY / innerHeight) * 2 + 1
@@ -246,11 +246,12 @@ window.addEventListener('click', (e) => {
   for (const hit of hits) {
     const obj = hit.object
     if (obj.userData.isLabel && obj.userData.onClick) {
+      e.stopPropagation()
       obj.userData.onClick()
       return
     }
   }
-  // Click anywhere else closes the panel
+  // Click on empty space → close panel
   hidePanel()
 })
 

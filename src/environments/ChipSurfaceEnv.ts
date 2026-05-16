@@ -84,8 +84,8 @@ void main() {
 
   // ── Trace network ─────────────────────────────────────────────
   float tId, tPos;
-  float TRACE_W   = 0.005;
-  float POWER_W   = 0.009;
+  float TRACE_W   = 0.010;
+  float POWER_W   = 0.018;
   float dist = traceNet(uv, TRACE_W, tId, tPos);
 
   // Power bus wider
@@ -148,7 +148,7 @@ void main() {
         : tId < 4.5
         ? vec3(0.2, 1.0, 0.6)    // data bus: green
         : vec3(0.2, 0.8, 1.0);   // signals: cyan
-      col += eCol * electron * traceMask * 4.0;
+      col += eCol * electron * traceMask * 8.0;
     }
   }
 

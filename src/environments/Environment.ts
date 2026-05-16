@@ -64,11 +64,6 @@ function getPanel(): HTMLElement {
     borderRadius: '4px',
   })
   document.body.appendChild(_panel)
-
-  // Close on outside click
-  document.addEventListener('click', e => {
-    if (_panel && !_panel.contains(e.target as Node)) hidePanel()
-  })
   return _panel
 }
 
@@ -154,6 +149,7 @@ export function makeFloatingLabel(
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.2), mat)
   mesh.userData.isLabel = true
   mesh.userData.onClick = onClick
+  mesh.frustumCulled = false
   // Always face camera (billboard)
   mesh.onBeforeRender = (_r, _s, cam) => mesh.quaternion.copy(cam.quaternion)
   return mesh
