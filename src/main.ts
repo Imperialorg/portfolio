@@ -8,6 +8,7 @@ import { PostProcessing } from './effects/PostProcessing'
 import { CameraPath, SECTION_KEYFRAMES } from './scene/CameraPath'
 import { PROJECTS, SKILLS } from './sections/data'
 import { DISTRICT_COLORS } from './city/CityGenerator'
+import { EnvironmentManager } from './environments/EnvironmentManager'
 
 // ──────────────────────────────────────────────────────────────
 // RENDERER + SCENE
@@ -66,6 +67,19 @@ const hemi = new THREE.HemisphereLight(0x000080, 0x000000, 0.4)
 scene.add(hemi)
 
 // ──────────────────────────────────────────────────────────────
+// CITY GROUP — for unified hide/show per environment
+// ──────────────────────────────────────────────────────────────
+const cityGroup = new THREE.Group()
+scene.add(cityGroup)
+// Move existing city children into group
+;(city as any).cityGroup?.children?.forEach((c: THREE.Object3D) => cityGroup.add(c))
+
+// ──────────────────────────────────────────────────────────────
+// ENVIRONMENT MANAGER
+// ──────────────────────────────────────────────────────────────
+const envManager = new EnvironmentManager(scene, cityGroup)
+
+// ──────────────────────────────────────────────────────────────
 // DISTRICT NEON COLOR — drives ground puddles + sky glow
 // Updated each frame based on camera section
 // ──────────────────────────────────────────────────────────────
@@ -88,6 +102,7 @@ camPath.onSectionChange = (idx) => {
   updateHUD(idx)
   updateDistrictColor(idx)
   postFX.triggerGlitch()
+  envManager.onSection(idx)
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -261,6 +276,7 @@ function animate() {
   neonSigns.update(t)
   sky.update(t, camera.position, currentNeon)
   camPath.update(dt)
+  envManager.update(t)
 
   postFX.render()
 }

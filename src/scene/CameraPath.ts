@@ -12,10 +12,10 @@ export const SECTION_KEYFRAMES: Array<{
   { pos: new THREE.Vector3(0, 180, 220),   look: new THREE.Vector3(0, 0, 0),       label: 'HERO' },
   // 1 — ABOUT: street level alley
   { pos: new THREE.Vector3(-40, 12, 110),  look: new THREE.Vector3(-20, 20, 60),   label: 'ABOUT' },
-  // 2 — Project 0 (GPU Emulator): industrial district low
-  { pos: new THREE.Vector3(-90, 28, 60),   look: new THREE.Vector3(-60, 18, 30),   label: 'PS3 GPU' },
-  // 3 — Project 1 (CPUonGPU): wide view, looking at cluster
-  { pos: new THREE.Vector3(-80, 18, -10),  look: new THREE.Vector3(-50, 12, -30),  label: 'CPUonGPU' },
+  // 2 — Project 0 (GPU Emulator): underground server room, looking at racks
+  { pos: new THREE.Vector3(-80, -8, 55),   look: new THREE.Vector3(-80, -8, 20),   label: 'PS3 GPU' },
+  // 3 — Project 1 (CPUonGPU): top-down chip surface view
+  { pos: new THREE.Vector3(-75, 30, -25),  look: new THREE.Vector3(-75, 0, -25),   label: 'CPUonGPU' },
   // 4 — Project 2 (GPU Streaming): billboard alley
   { pos: new THREE.Vector3(-30, 10, -60),  look: new THREE.Vector3(0, 20, -90),    label: 'GPU Stream' },
   // 5 — Project 3 (Selkies-Rust): rise to mid level
