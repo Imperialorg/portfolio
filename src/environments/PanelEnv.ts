@@ -10,8 +10,11 @@ function drawPanel(proj: Project): THREE.CanvasTexture {
   const neon = proj.neonColor
 
   // Solid dark background
-  ctx.fillStyle = '#03040f'
+  ctx.fillStyle = '#010208'
   ctx.fillRect(0, 0, W, H)
+  // Inner border for depth
+  ctx.fillStyle = 'rgba(10,12,30,0.95)'
+  ctx.fillRect(3, 3, W - 6, H - 6)
 
   // Subtle scanlines
   for (let y = 0; y < H; y += 4) {
@@ -148,7 +151,7 @@ export class PanelEnv extends Environment {
     // ── Panel face ────────────────────────────────────────────────────
     const panelMat = track(new THREE.MeshBasicMaterial({
       map: drawPanel(proj),
-      transparent: true, depthWrite: false,
+      transparent: true, depthWrite: true,
       side: THREE.FrontSide, alphaTest: 0.01,
     }), 1.0)
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(40, 19.5), panelMat)
