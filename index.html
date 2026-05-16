@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="D Shantan Dheer — Systems Programmer, GPU Engineer, Creative Dev" />
+  <meta property="og:title" content="D Shantan Dheer · Neon District" />
+  <meta property="og:description" content="GPU kernels. CUDA emulators. AI systems. 1st-year EEE at GCET." />
+  <title>D Shantan Dheer · Neon District</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="loading-screen">
+    <div id="boot-terminal">
+      <div class="boot-header">NEON DISTRICT OS v1.0 — INIT SEQUENCE</div>
+      <div id="boot-lines"></div>
+      <div class="boot-progress-wrap">
+        <div id="boot-bar"></div>
+        <span id="boot-pct">0%</span>
+      </div>
+      <div class="boot-hint blink">[ SCROLL TO JACK IN ]</div>
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <!-- Semantic HTML for accessibility / SEO (visually hidden, canvas is decorative) -->
+  <main id="content" aria-label="Portfolio content">
+    <section id="section-hero" aria-label="Introduction">
+      <h1>D Shantan Dheer</h1>
+      <p>Systems Programmer · GPU Engineer · 1st-year EEE, GCET</p>
+    </section>
+    <section id="section-projects" aria-label="Projects">
+      <h2>Projects</h2>
+      <ul>
+        <li><a href="https://github.com/Aerosane/ps3-cell-gpu-emulator">PS3 Cell GPU Emulator</a></li>
+        <li><a href="https://github.com/Aerosane/cpuongpu">CPUonGPU</a></li>
+        <li><a href="https://github.com/Aerosane/oris">Oris — Autonomous AI SRE</a></li>
+        <li><a href="https://github.com/Aerosane/vajragridr">VajraGrid</a></li>
+        <li><a href="https://github.com/Aerosane/iiser-exam-prep">IISER Exam Prep</a></li>
+        <li><a href="https://github.com/Aerosane/vidyamitra">VidyaMitra</a></li>
+        <li><a href="https://github.com/Aerosane/netflip-vod">Netflip VOD</a></li>
+        <li><a href="https://github.com/Aerosane/coding_arena">Coding Arena</a></li>
+      </ul>
+    </section>
+    <section id="section-contact" aria-label="Contact">
+      <h2>Contact</h2>
+      <a href="https://github.com/Aerosane">GitHub</a>
+      <a href="mailto:shantandheerd@gmail.com">Email</a>
+      <a href="https://linkedin.com/in/shantan-dheer-932082383">LinkedIn</a>
+    </section>
+  </main>
+
+  <!-- Project detail overlay -->
+  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true">
+    <button id="overlay-close" aria-label="Close project">✕</button>
+    <div id="overlay-content"></div>
+  </div>
+
+  <!-- Nav dots -->
+  <nav id="section-nav" aria-label="Section navigation">
+    <button class="nav-dot active" data-section="0" aria-label="Hero"></button>
+    <button class="nav-dot" data-section="1" aria-label="About"></button>
+    <button class="nav-dot" data-section="2" aria-label="Projects"></button>
+    <button class="nav-dot" data-section="3" aria-label="Skills"></button>
+    <button class="nav-dot" data-section="4" aria-label="Contact"></button>
+  </nav>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
