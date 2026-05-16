@@ -40,19 +40,34 @@ export abstract class Environment {
   }) }
 }
 
-// Minimal canvas label texture
+// Minimal glowing text label — no border box, just floating text
 export function makeLabel(text: string, sub: string, color = '#00f5ff'): THREE.Texture {
-  const W = 320, H = 96
+  const W = 512, H = 80
   const c = document.createElement('canvas'); c.width = W; c.height = H
   const ctx = c.getContext('2d')!
   ctx.clearRect(0, 0, W, H)
-  ctx.strokeStyle = color; ctx.lineWidth = 1.5
-  ctx.strokeRect(1, 1, W-2, H-2)
-  ctx.fillStyle = color + '18'; ctx.fillRect(0, 0, W, H)
-  ctx.fillStyle = color; ctx.font = 'bold 20px monospace'
-  ctx.textAlign = 'center'; ctx.fillText(text, W/2, 34)
-  ctx.fillStyle = 'rgba(200,230,255,0.7)'; ctx.font = '13px monospace'
-  ctx.fillText(sub, W/2, 58)
+
+  // Soft glow behind text
+  const grd = ctx.createRadialGradient(W/2, H/2, 4, W/2, H/2, W/2)
+  grd.addColorStop(0, color + '22')
+  grd.addColorStop(1, 'transparent')
+  ctx.fillStyle = grd
+  ctx.fillRect(0, 0, W, H)
+
+  // Main label
+  ctx.fillStyle = color
+  ctx.font = 'bold 22px monospace'
+  ctx.textAlign = 'center'
+  ctx.shadowColor = color
+  ctx.shadowBlur = 12
+  ctx.fillText(text, W/2, 32)
+
+  // Sub text
+  ctx.fillStyle = 'rgba(200,230,255,0.6)'
+  ctx.font = '13px monospace'
+  ctx.shadowBlur = 6
+  ctx.fillText(sub, W/2, 54)
+
   return new THREE.CanvasTexture(c)
 }
 
