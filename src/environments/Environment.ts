@@ -119,45 +119,43 @@ export function makeFloatingLabel(
   color: string,
   onClick: () => void
 ): THREE.Mesh {
-  const W = 400, H = 56
+  const W = 512, H = 64
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')!
+  // fully transparent background — no rect fill
+  ctx.clearRect(0, 0, W, H)
 
-  // Subtle background
-  const bg = ctx.createLinearGradient(0, 0, W, 0)
-  bg.addColorStop(0, color + '00')
-  bg.addColorStop(0.15, color + '18')
-  bg.addColorStop(0.85, color + '18')
-  bg.addColorStop(1, color + '00')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, W, H)
+  // Title — glow layers first, then solid fill on top
+  ctx.font = 'bold 20px monospace'
+  ctx.textAlign = 'center'
+  ctx.shadowColor = color
+  for (const blur of [24, 12, 6]) {
+    ctx.shadowBlur = blur
+    ctx.fillStyle = color
+    ctx.fillText(title, W / 2, 34)
+  }
+  ctx.shadowBlur = 0
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(title, W / 2, 34)
 
-  // Tick mark left edge
+  // Hint line
+  ctx.font = '11px monospace'
+  ctx.shadowBlur = 6
+  ctx.shadowColor = color
   ctx.fillStyle = color
-  ctx.fillRect(0, H * 0.2, 3, H * 0.6)
-
-  // Title text with glow
-  ctx.font = 'bold 18px monospace'
-  ctx.textAlign = 'left'
-  ctx.shadowColor = color; ctx.shadowBlur = 14
-  ctx.fillStyle = color
-  ctx.fillText(title, 16, 34)
-
-  // "CLICK FOR DETAILS" hint
-  ctx.font = '10px monospace'
-  ctx.shadowBlur = 4
-  ctx.fillStyle = color + 'aa'
-  ctx.fillText('[ CLICK FOR DETAILS ]', 16, 50)
+  ctx.fillText('▶  CLICK FOR DETAILS', W / 2, 54)
 
   const tex = new THREE.CanvasTexture(canvas)
   const mat = new THREE.MeshBasicMaterial({
     map: tex, transparent: true, depthWrite: false,
-    side: THREE.DoubleSide,
+    side: THREE.DoubleSide, alphaTest: 0.02,
   })
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.12), mat)
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.2), mat)
   mesh.userData.isLabel = true
   mesh.userData.onClick = onClick
+  // Always face camera (billboard)
+  mesh.onBeforeRender = (_r, _s, cam) => mesh.quaternion.copy(cam.quaternion)
   return mesh
 }
 
