@@ -43,8 +43,19 @@ float hash(vec2 p) {
 }
 
 void main() {
-  // ── WALL BASE ──────────────────────────────────────────────
-  vec3 color = vec3(0.018, 0.018, 0.026);
+  // ── WALL BASE — fake path-traced ambient (never pitch black) ──
+  // Sky bounce: cool blue-purple from above
+  vec3 skyAmbient  = vec3(0.038, 0.038, 0.072);
+  // Street glow: warm orange rising from ground, fades with height
+  float streetBlend = clamp(1.0 - vWorldPos.y / 80.0, 0.0, 1.0);
+  vec3 cityAmbient = vec3(0.055, 0.028, 0.008) * streetBlend;
+  // District neon bleed: subtle tint from nearest neon zone
+  vec3 neonAmbient = vNeonColor * 0.038;
+  // Face-angle variation: surfaces facing viewer get slightly more light
+  vec3 viewDir2 = normalize(cameraPosition - vWorldPos);
+  float facing  = max(0.0, dot(vNormal, viewDir2));
+  vec3 faceBounce = vec3(0.02, 0.022, 0.03) * facing;
+  vec3 color = skyAmbient + cityAmbient + neonAmbient + faceBounce;
 
   // ── WINDOW GRID ────────────────────────────────────────────
   float density = mix(10.0, 32.0, clamp(vHeight/250.0,0.0,1.0));
