@@ -35,6 +35,7 @@ export class EnvironmentManager {
   onSection(idx: number) {
     if (idx === this.activeIdx) return
     this.activeIdx = idx
+    // Exit current env instantly
     if (this.activeEnv) { this.activeEnv.exit(); this.activeEnv = null }
     const env = this.envs.get(idx)
     if (env) { this.activeEnv = env; env.enter() }

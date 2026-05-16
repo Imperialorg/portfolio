@@ -20,14 +20,14 @@ export abstract class Environment {
     this.group.visible = true
     this.visible = true
     gsap.killTweensOf(this)
-    gsap.to(this, { visibleValue: 1, duration: 1.4, ease: 'power2.out',
+    gsap.to(this, { visibleValue: 1, duration: 0.35, ease: 'expo.out',
       onUpdate: () => this.setVisible(this.visibleValue) })
   }
 
   exit() {
     this.visible = false
     gsap.killTweensOf(this)
-    gsap.to(this, { visibleValue: 0, duration: 0.8, ease: 'power2.in',
+    gsap.to(this, { visibleValue: 0, duration: 0.18, ease: 'power2.in',
       onUpdate: () => this.setVisible(this.visibleValue),
       onComplete: () => { this.group.visible = false } })
   }

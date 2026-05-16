@@ -23,7 +23,7 @@ export const SECTION_KEYFRAMES: Array<{
   { pos: new THREE.Vector3(0, 120, 160),   look: new THREE.Vector3(0, 0, 0),        label: 'CONTACT',    t: 0 },
 ]
 
-const SCROLL_LOCK_MS = 1600
+const SCROLL_LOCK_MS = 320
 
 export class CameraPath {
   private camera: THREE.PerspectiveCamera
@@ -109,9 +109,9 @@ export class CameraPath {
     this.currentSection = idx
     const targetT = SECTION_KEYFRAMES[idx].t
 
-    // Distance on spline determines travel time — near = fast, far = moderate
+    // Adjacent sections snap fast, longer jumps are moderate
     const dist = Math.abs(targetT - this.t)
-    const duration = 0.6 + dist * 5.0   // 0.6s minimum, ~2s for full path
+    const duration = 0.6 + dist * 5.0   // original — camera travel not the focus
 
     GSAP.killTweensOf(this)
     GSAP.to(this, {
