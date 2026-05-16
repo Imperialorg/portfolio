@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Environment, showProjectPanel } from './Environment'
+import { Environment } from './Environment'
 import { PROJECTS, Project } from '../sections/data'
 
 function drawPanel(proj: Project): THREE.CanvasTexture {
@@ -154,7 +154,7 @@ export class PanelEnv extends Environment {
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(40, 19.5), panelMat)
     panel.frustumCulled = false
     panel.userData.isLabel = true
-    panel.userData.onClick = () => showProjectPanel(proj)
+    panel.userData.onClick = () => window.open(proj.url, '_blank')
     pivot.add(panel)
 
     // ── Neon frame border ─────────────────────────────────────────────

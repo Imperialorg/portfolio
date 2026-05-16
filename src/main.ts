@@ -9,7 +9,6 @@ import { CameraPath, SECTION_KEYFRAMES } from './scene/CameraPath'
 import { PROJECTS, SKILLS } from './sections/data'
 import { DISTRICT_COLORS } from './city/CityGenerator'
 import { EnvironmentManager } from './environments/EnvironmentManager'
-import { hidePanel } from './environments/Environment'
 
 // ──────────────────────────────────────────────────────────────
 // RENDERER + SCENE
@@ -44,7 +43,7 @@ sky.create(scene)
 // ──────────────────────────────────────────────────────────────
 const city = new CityGenerator()
 city.generate(scene)
-city.addAntennas(scene)
+// antennas removed — red bars cluttering skyline
 
 // District name labels floating above rooftops (canvas texture, readable)
 const LABELS = PROJECTS.map((p, i) => {
@@ -304,8 +303,7 @@ window.addEventListener('click', (e) => {
       return
     }
   }
-  // Click on empty space → close panel
-  hidePanel()
+  // Click on empty space — nothing to do (no panel)
 })
 
 // ──────────────────────────────────────────────────────────────
