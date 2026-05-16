@@ -188,31 +188,33 @@ export class CityGenerator {
           this.meshD.setMatrixAt(cD, mtx); cD++
         }
 
-        // ── Ledge rings on sectionLow ────────────────────
-        const ledgeCount = Math.floor(rand(2, 4))
-        for (let li = 1; li <= ledgeCount; li++) {
-          const ly = (li / (ledgeCount + 1)) * lowH
-          pos.set(wx, ly, wz)
-          scl.set(fw + 1.2, 0.7, fd + 1.2)
-          mtx.compose(pos, quat, scl)
-          this.meshLedge.setMatrixAt(cLedge, mtx)
-          cLedge++
-        }
-        // One ledge at junction between sectionLow and sectionMid
-        if (h > 40) {
-          pos.set(wx, h * 0.62, wz)
-          scl.set(fw * 0.72, 0.7, fd * 0.72)
-          mtx.compose(pos, quat, scl)
-          this.meshLedge.setMatrixAt(cLedge, mtx)
-          cLedge++
-        }
-        // One ledge at junction between sectionMid and sectionTop
-        if (h > 100) {
-          pos.set(wx, h * 0.85, wz)
-          scl.set(fw * 0.42, 0.7, fd * 0.42)
-          mtx.compose(pos, quat, scl)
-          this.meshLedge.setMatrixAt(cLedge, mtx)
-          cLedge++
+        // ── Ledge rings — only ~50% of buildings ─────────
+        if (Math.random() < 0.5) {
+          const ledgeCount = Math.floor(rand(2, 4))
+          for (let li = 1; li <= ledgeCount; li++) {
+            const ly = (li / (ledgeCount + 1)) * lowH
+            pos.set(wx, ly, wz)
+            scl.set(fw + 1.2, 0.7, fd + 1.2)
+            mtx.compose(pos, quat, scl)
+            this.meshLedge.setMatrixAt(cLedge, mtx)
+            cLedge++
+          }
+          // Junction ledge between sectionLow and sectionMid
+          if (h > 40) {
+            pos.set(wx, h * 0.62, wz)
+            scl.set(fw * 0.72, 0.7, fd * 0.72)
+            mtx.compose(pos, quat, scl)
+            this.meshLedge.setMatrixAt(cLedge, mtx)
+            cLedge++
+          }
+          // Junction ledge between sectionMid and sectionTop
+          if (h > 100) {
+            pos.set(wx, h * 0.85, wz)
+            scl.set(fw * 0.42, 0.7, fd * 0.42)
+            mtx.compose(pos, quat, scl)
+            this.meshLedge.setMatrixAt(cLedge, mtx)
+            cLedge++
+          }
         }
       }
     }
