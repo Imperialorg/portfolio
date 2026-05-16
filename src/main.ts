@@ -137,27 +137,6 @@ function updateHUD(idx: number) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// PROJECT PANELS (sections 2–11)
-// ──────────────────────────────────────────────────────────────
-PROJECTS.forEach((p, i) => {
-  const el = document.getElementById(`proj-${i + 2}`)
-  if (!el) return
-  el.style.setProperty('--neon', p.neonColor)
-  el.style.borderColor = p.neonColor + '44'
-  el.innerHTML = `
-    <div class="proj-icon" style="color:${p.neonColor};text-shadow:0 0 14px ${p.neonColor}">${p.icon}</div>
-    <div class="proj-content">
-      <div class="proj-district">${p.district}</div>
-      <div class="proj-title" style="text-shadow:0 0 20px ${p.neonColor}88">${p.title}</div>
-      <div class="proj-subtitle">${p.subtitle}</div>
-      <p class="proj-desc">${p.desc}</p>
-      <div class="proj-tags">${p.tags.map(t=>`<span class="proj-tag" style="border-color:${p.neonColor}44;color:${p.neonColor}">${t}</span>`).join('')}</div>
-      <a class="proj-link" href="${p.url}" target="_blank" style="color:${p.neonColor};border-color:${p.neonColor}">[ VIEW SOURCE → ]</a>
-    </div>
-  `
-})
-
-// ──────────────────────────────────────────────────────────────
 // SKILLS PANEL
 // ──────────────────────────────────────────────────────────────
 const sg = document.getElementById('skills-grid')
