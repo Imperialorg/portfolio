@@ -387,8 +387,8 @@ export class CityGenerator {
       const fw = rand(BLOCK * 0.55, BLOCK * 0.85)
       const fd = rand(BLOCK * 0.55, BLOCK * 0.85)
 
-      const signW = rand(18, 50)
-      const signH = rand(10, 28)
+      const signW = rand(8, 22)
+      const signH = rand(4, 11)
       const signY = rand(h * 0.25, h * 0.55)
 
       const face = Math.floor(Math.random() * 4)
