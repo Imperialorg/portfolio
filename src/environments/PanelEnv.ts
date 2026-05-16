@@ -97,10 +97,12 @@ export class PanelEnv extends Environment {
     const proj = PROJECTS[this.projIdx]
     const neon = new THREE.Color(proj.neonColor)
 
-    // ── Pivot: positioned at panel centre, facing the section camera ──
+    // Rotate only around Y so the billboard stays vertical, facing the camera horizontally
     const pivot = new THREE.Group()
     pivot.position.copy(this.panelPos)
-    pivot.lookAt(this.camPos)
+    const dx = this.camPos.x - this.panelPos.x
+    const dz = this.camPos.z - this.panelPos.z
+    pivot.rotation.y = Math.atan2(dx, dz)
     this.group.add(pivot)
 
     const track = (mat: THREE.MeshBasicMaterial, maxOpacity: number) => {
