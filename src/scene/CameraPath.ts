@@ -107,11 +107,16 @@ export class CameraPath {
 
     const prevSection = this.currentSection
     this.currentSection = idx
+    this._lastFiredSection = idx
     const targetT = SECTION_KEYFRAMES[idx].t
 
-    // Adjacent sections snap fast, longer jumps are moderate
+    // Fire transition IMMEDIATELY on scroll — don't wait for camera to arrive
+    this.onSectionChange?.(idx)
+    this._updateUI(idx)
+
+    // Camera follows after — its travel time is independent of the transition
     const dist = Math.abs(targetT - this.t)
-    const duration = 0.6 + dist * 5.0   // original — camera travel not the focus
+    const duration = 0.6 + dist * 5.0
 
     GSAP.killTweensOf(this)
     GSAP.to(this, {
@@ -119,15 +124,7 @@ export class CameraPath {
       duration,
       ease: 'power2.inOut',
       onUpdate: () => this._fireCrossings(prevSection, idx),
-      onComplete: () => {
-        // Ensure final section fires if not already
-        this._lastFiredSection = idx
-        this.onSectionChange?.(idx)
-        this._updateUI(idx)
-      }
     })
-
-    this._updateUI(idx)
   }
 
   private _lastFiredSection = 0
