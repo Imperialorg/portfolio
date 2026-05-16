@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { Environment, makeLabelMesh } from './Environment'
+import { Environment, makeFloatingLabel, showProjectPanel } from './Environment'
+import { PROJECTS } from '../sections/data'
 
 // Section 4 — GPU Streaming (NvFBC + NVENC + Selkies)
 // Broadcast towers + signal rings + fiber optic path + encoding pipeline screen
@@ -14,10 +15,12 @@ varying vec2 vUv;
 void main() {
   // Fiber optic tube: animated light pulse racing along it
   float t = fract(vUv.x * 3.0 - uTime * 1.2);
-  float pulse = exp(-abs(t - 0.5) * 12.0);
+  float pulse = exp(-abs(t - 0.5) * 24.0);
   vec3 fiberBase = vec3(0.05, 0.05, 0.12);
   vec3 pulseColor = vec3(1.0, 0.2, 0.8);
-  vec3 col = fiberBase + pulseColor * pulse * 8.0;
+  vec3 // Tight core + wider cladding glow
+  float cladding = exp(-abs(t-0.5)*8.0)*0.3;
+  col = fiberBase + pulseColor*(pulse*8.0+cladding);
   // Glow around the tube body
   float radial = 1.0 - smoothstep(0.3, 0.5, abs(vUv.y - 0.5));
   col *= radial * 2.0;
@@ -180,6 +183,12 @@ export class WebRTCEnv extends Environment {
     this.mats.push(encMat)
 
     // Label
+    // Label
+    const proj = PROJECTS[2]
+    const lbl = makeFloatingLabel(proj.title, proj.neonColor, () => showProjectPanel(proj))
+    lbl.position.set(CENTER.x - 20, CENTER.y + 24, CENTER.z)
+    lbl.scale.setScalar(1.8)
+    this.group.add(lbl)
   }
 
   update(t: number) {

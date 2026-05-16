@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { Environment, makeLabelMesh } from './Environment'
+import { Environment, makeFloatingLabel, showProjectPanel } from './Environment'
+import { PROJECTS } from '../sections/data'
 
 // Section 6 — Oris AI
 // Neural network hologram: sphere nodes, animated activation edges, anomaly detection, log stream
@@ -59,7 +60,7 @@ void main() {
   float t   = fract(uTime * 0.7 + vEdgePhase);
   float pulse = exp(-abs(t - 0.5) * 9.0);
   vec3 col  = mix(vec3(0.25, 0.0, 0.6), vec3(1.0, 0.5, 1.0), pulse);
-  float alpha = (0.18 + 0.82 * pulse) * uVisible;
+  float alpha = (0.25 + 0.75 * pulse * 1.4) * uVisible;
   gl_FragColor = vec4(col, alpha);
 }
 `

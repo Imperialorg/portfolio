@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { Environment, makeLabelMesh } from './Environment'
+import { Environment, makeFloatingLabel, showProjectPanel } from './Environment'
+import { PROJECTS } from '../sections/data'
 
 // Section 7 — VajraGrid (Power Grid Cybersecurity)
 // Holographic topology map: substations as hex nodes, power lines as data flows,
@@ -57,7 +58,7 @@ void main() {
   float t     = fract(uTime * 0.5 + vLinePhase);
   float pulse = exp(-abs(t - 0.5) * 10.0);
   vec3 col    = mix(vec3(0.0, 0.5, 0.9), vec3(0.8, 1.0, 1.0), pulse);
-  gl_FragColor = vec4(col, (0.12 + 0.88 * pulse) * uVisible);
+  gl_FragColor = vec4(col, (0.2 + 0.8 * pulse * 1.3) * uVisible);
 }
 `
 

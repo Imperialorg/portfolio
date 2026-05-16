@@ -1,225 +1,228 @@
 import * as THREE from 'three'
-import { Environment, makeLabelMesh } from './Environment'
+import { Environment, makeFloatingLabel, showProjectPanel } from './Environment'
+import { PROJECTS } from '../sections/data'
 
-// Section 2 — PS3 Cell BE GPU Emulator
-// Underground server room: racks + Cell chip hologram + data particles
-// World center: (-80, -8, 38)
 const CENTER = new THREE.Vector3(-80, -8, 38)
 
+// ─── Server rack LED blade shader ────────────────────────────────────────────
 const RACK_FRAG = `
 uniform float uTime;
 uniform float uVisible;
 varying vec2 vUv;
-
-float hash(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5); }
-
+float hash(float n){ return fract(sin(n)*43758.5); }
 void main() {
-  // Rack body: dark metal
-  vec3 col = vec3(0.06, 0.07, 0.10);
-
-  // 1U blade rows
+  vec3 col = vec3(0.06, 0.07, 0.11);
   float row = floor(vUv.y * 24.0);
-  float rowFrac = fract(vUv.y * 24.0);
-
-  // LED strip on each blade
-  float ledX = fract(vUv.x * 8.0);
-  float ledRow = mod(row, 2.0);
-
-  // Flicker per blade
-  float h = hash(vec2(row, 0.0));
-  float flicker = 0.85 + 0.15 * sin(uTime * 3.0 + h * 12.0);
-  float led = step(0.72, ledX) * step(ledX, 0.86) * step(0.08, rowFrac) * step(rowFrac, 0.28);
-  vec3 ledColor = mix(vec3(0.0, 0.9, 0.2), vec3(0.9, 0.4, 0.0), step(h, 0.15));
-  col += ledColor * led * flicker * 2.0;
-
-  // Blade gap
-  col *= 1.0 - step(0.9, rowFrac) * 0.5;
-
-  // Glow edge
-  col += vec3(0.0, 0.3, 0.15) * (1.0 - abs(vUv.x - 0.5) * 2.0) * 0.03;
-
+  float rowF = fract(vUv.y * 24.0);
+  float ledX = fract(vUv.x * 6.0);
+  float h    = hash(row);
+  float flicker = 0.82 + 0.18*sin(uTime*3.2 + h*12.0);
+  float led  = step(0.70,ledX)*step(ledX,0.86)*step(0.1,rowF)*step(rowF,0.3);
+  vec3 lCol  = h>0.15 ? vec3(0.0,0.9,0.25) : vec3(0.9,0.4,0.0);
+  col += lCol * led * flicker * 3.0;
+  col *= 1.0 - step(0.88,rowF)*0.6;
+  col += vec3(0.0,0.25,0.12)*(1.0-abs(vUv.x-0.5)*2.0)*0.04;
   gl_FragColor = vec4(col, uVisible);
 }
 `
 
-const CELL_VERT = `
-attribute float aPhase;
-varying float vPhase;
-varying vec3 vPos;
-void main() {
-  vPhase = aPhase;
-  vPos = position;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = 4.0;
-}
-`
-
-const CELL_FRAG = `
-uniform float uTime;
-uniform float uVisible;
-varying float vPhase;
-varying vec3 vPos;
-void main() {
-  float t = fract(uTime * 0.6 + vPhase);
-  float alive = step(0.0, t) * step(t, 0.8);
-  float fade = alive * sin(t * 3.14159);
-  vec2 uv = gl_PointCoord - 0.5;
-  float d = length(uv);
-  if (d > 0.5) discard;
-  float circle = 1.0 - smoothstep(0.2, 0.5, d);
-  vec3 col = mix(vec3(0.0, 0.9, 1.0), vec3(0.8, 0.3, 1.0), vPhase);
-  gl_FragColor = vec4(col * circle * fade * 4.0, circle * fade * uVisible);
-}
-`
-
+// ─── Floor grating ────────────────────────────────────────────────────────────
 const FLOOR_FRAG = `
 uniform float uTime;
 uniform float uVisible;
 varying vec2 vUv;
 void main() {
-  vec2 grid = fract(vUv * 30.0);
-  float lines = step(0.92, grid.x) + step(0.92, grid.y);
-  float glow = lines * 0.6;
-  vec3 col = vec3(0.0, 0.6, 0.4) * glow;
-  col += vec3(0.01, 0.02, 0.04); // dark base
-  gl_FragColor = vec4(col, uVisible);
+  vec2 g  = fract(vUv*32.0);
+  float grid = step(0.91,g.x)+step(0.91,g.y);
+  float dist  = length(vUv-0.5);
+  float fade  = 1.0-smoothstep(0.2,0.5,dist);
+  float pulse = 0.5+0.5*sin(uTime*0.6-dist*8.0);
+  col = vec3(0.0,0.55,0.35)*grid*fade*(0.4+0.6*pulse);
+  gl_FragColor = vec4(col, grid*fade*0.55*uVisible);
 }
 `
 
+// ─── SPE→PPE data bus: bright beam + particles along it ─────────────────────
+const BUS_VERT = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`
+const BUS_FRAG = `
+uniform float uTime;
+uniform float uVisible;
+varying vec2 vUv;
+void main() {
+  // Tube cross-section: distance from center
+  float radial = 1.0 - smoothstep(0.28,0.5,abs(vUv.y-0.5)*2.0);
+  // Core glow
+  float core = exp(-abs(vUv.y-0.5)*12.0);
+  // Electron packets: 4 per bus
+  float flow = 0.0;
+  for(int k=0;k<4;k++){
+    float t = fract(uTime*0.9 + float(k)*0.25);
+    float pkt = exp(-abs(vUv.x - t)*22.0);
+    flow += pkt;
+  }
+  vec3 col = vec3(0.1,0.85,1.0)*(core*0.6 + flow*radial*1.8);
+  gl_FragColor = vec4(col, (radial*0.35+flow*radial*0.9)*uVisible);
+}
+`
+
+// ─── Cell BE hologram ring shader ────────────────────────────────────────────
+const RING_FRAG = `
+uniform float uTime;
+uniform float uRadius;
+uniform float uVisible;
+uniform vec3  uColor;
+varying vec2 vUv;
+void main() {
+  vec2 uv = vUv - 0.5;
+  float r   = length(uv);
+  float ring = 1.0-smoothstep(0.,0.025,abs(r-uRadius));
+  float angle = atan(uv.y,uv.x);
+  float scan = 0.5+0.5*sin(angle*4.0 - uTime*2.5);
+  float pulse = 0.6+0.4*sin(uTime*2.0);
+  gl_FragColor = vec4(uColor*(ring*(0.5+0.5*scan)*pulse), ring*0.8*uVisible);
+}
+`
+
+const PLAIN_VERT = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`
+
 export class ServerRoomEnv extends Environment {
-  private mats: THREE.ShaderMaterial[] = []
-  private particleMat!: THREE.ShaderMaterial
+  private rackMat!:   THREE.ShaderMaterial
+  private floorMat!:  THREE.ShaderMaterial
+  private busMats:    THREE.ShaderMaterial[] = []
+  private ringMats:   THREE.ShaderMaterial[] = []
+  private ppeMat!:    THREE.MeshBasicMaterial
 
   create(scene: THREE.Scene) {
     scene.add(this.group)
 
     // Floor grating
-    const floorGeo = new THREE.PlaneGeometry(60, 50)
-    const floorMat = new THREE.ShaderMaterial({
-      vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: FLOOR_FRAG,
-      uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
+    this.floorMat = new THREE.ShaderMaterial({
+      vertexShader: PLAIN_VERT,
+      fragmentShader: FLOOR_FRAG.replace('col =', 'vec3 col ='),
+      uniforms: { uTime:{value:0}, uVisible:{value:0} },
       transparent: true,
     })
-    const floor = new THREE.Mesh(floorGeo, floorMat)
-    floor.rotation.x = -Math.PI / 2
-    floor.position.set(CENTER.x, CENTER.y - 6, CENTER.z)
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(64, 54), this.floorMat)
+    floor.rotation.x = -Math.PI/2
+    floor.position.set(CENTER.x, CENTER.y-6, CENTER.z)
     this.group.add(floor)
-    this.mats.push(floorMat)
 
     // 8 server racks (2 rows × 4)
-    const rackGeo = new THREE.BoxGeometry(4, 24, 6)
-    const rackMat = new THREE.ShaderMaterial({
-      vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: RACK_FRAG,
-      uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
+    this.rackMat = new THREE.ShaderMaterial({
+      vertexShader: PLAIN_VERT, fragmentShader: RACK_FRAG,
+      uniforms: { uTime:{value:0}, uVisible:{value:0} },
       transparent: true,
     })
-    this.mats.push(rackMat)
-    const rackPositions = [
+    const rackPositions: [number,number,number][] = [
       [-18,-9,10],[-12,-9,10],[-6,-9,10],[0,-9,10],
       [-18,-9,-10],[-12,-9,-10],[-6,-9,-10],[0,-9,-10],
     ]
     for (const [x,y,z] of rackPositions) {
-      const rack = new THREE.Mesh(rackGeo, rackMat)
-      rack.position.set(CENTER.x + x, CENTER.y + y + 10, CENTER.z + z)
+      const rack = new THREE.Mesh(new THREE.BoxGeometry(4,24,6), this.rackMat)
+      rack.position.set(CENTER.x+x, CENTER.y+y+12, CENTER.z+z)
       this.group.add(rack)
     }
 
-    // Ceiling strips of light
-    const stripGeo = new THREE.PlaneGeometry(40, 0.4)
-    const stripMat = new THREE.MeshBasicMaterial({ color: 0x00ffaa, transparent: true })
-    for (let i = 0; i < 3; i++) {
-      const s = new THREE.Mesh(stripGeo, stripMat.clone())
-      s.rotation.x = Math.PI / 2
-      s.position.set(CENTER.x - 9, CENTER.y + 5, CENTER.z - 8 + i * 8)
+    // Ceiling fluorescent strips
+    const stripMat = new THREE.MeshBasicMaterial({ color: 0x00ffaa, transparent: true, opacity: 0.7 })
+    for (let i=0;i<3;i++){
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(42, 0.5), stripMat.clone())
+      s.rotation.x = Math.PI/2
+      s.position.set(CENTER.x-9, CENTER.y+5.8, CENTER.z-8+i*8)
       this.group.add(s)
     }
 
-    // Cell BE hologram: PPE center + 6 SPE hexagons
-    this.buildCellHologram()
+    // ── Cell BE hologram ──────────────────────────────────────────
+    const HOLO = new THREE.Vector3(CENTER.x+14, CENTER.y+2, CENTER.z)
 
-    // Data flow particles between SPEs
-    this.buildParticles()
-
-    // Label
-  }
-
-  private buildCellHologram() {
-    const CENTER_H = new THREE.Vector3(CENTER.x + 14, CENTER.y + 2, CENTER.z)
-    // PPE core
-    const ppeMat = new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true })
-    const ppe = new THREE.Mesh(new THREE.OctahedronGeometry(2.5, 1), ppeMat)
-    ppe.position.copy(CENTER_H)
+    // PPE core — rotating octahedron
+    this.ppeMat = new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true, opacity: 0.9 })
+    const ppe = new THREE.Mesh(new THREE.OctahedronGeometry(2.8, 1), this.ppeMat)
+    ppe.position.copy(HOLO)
     this.group.add(ppe)
+    ppe.userData.rotating = true
 
-    // 6 SPE hexagons at 60° increments
-    const speMat = new THREE.MeshBasicMaterial({ color: 0x39ff14, wireframe: true, transparent: true })
-    for (let i = 0; i < 6; i++) {
-      const angle = (i / 6) * Math.PI * 2
-      const spe = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.4, 6), speMat.clone())
-      spe.position.set(
-        CENTER_H.x + Math.cos(angle) * 6,
-        CENTER_H.y,
-        CENTER_H.z + Math.sin(angle) * 6
-      )
-      this.group.add(spe)
-    }
-  }
-
-  private buildParticles() {
-    const N = 200
-    const positions = new Float32Array(N * 3)
-    const phases = new Float32Array(N)
-
-    // Distribute particles along radial spoke paths (PPE→SPE)
-    const CENTER_H = new THREE.Vector3(CENTER.x + 14, CENTER.y + 2, CENTER.z)
-    for (let i = 0; i < N; i++) {
-      const spoke = i % 6
-      const angle = (spoke / 6) * Math.PI * 2
-      const t = Math.random()
-      positions[i*3]   = CENTER_H.x + Math.cos(angle) * 6 * t
-      positions[i*3+1] = CENTER_H.y + (Math.random() - 0.5) * 0.5
-      positions[i*3+2] = CENTER_H.z + Math.sin(angle) * 6 * t
-      phases[i] = Math.random()
-    }
-
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1))
-
-    this.particleMat = new THREE.ShaderMaterial({
-      vertexShader: CELL_VERT,
-      fragmentShader: CELL_FRAG,
-      uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
+    // PPE orbit ring
+    const orbitRingMat = new THREE.ShaderMaterial({
+      vertexShader: PLAIN_VERT, fragmentShader: RING_FRAG,
+      uniforms: { uTime:{value:0}, uVisible:{value:0}, uRadius:{value:0.42}, uColor:{value:new THREE.Color(0x00f5ff)} },
+      transparent: true, depthWrite: false, side: THREE.DoubleSide,
     })
+    const orbitRing = new THREE.Mesh(new THREE.PlaneGeometry(14,14), orbitRingMat)
+    orbitRing.rotation.x = -Math.PI/2
+    orbitRing.position.set(HOLO.x, HOLO.y, HOLO.z)
+    this.group.add(orbitRing)
+    this.ringMats.push(orbitRingMat)
 
-    const pts = new THREE.Points(geo, this.particleMat)
-    this.group.add(pts)
+    // 6 SPE nodes at hex positions
+    const speMat = new THREE.MeshBasicMaterial({ color: 0x39ff14, wireframe: true, transparent: true, opacity: 0.85 })
+    const spePositions: THREE.Vector3[] = []
+    for(let i=0;i<6;i++){
+      const angle = (i/6)*Math.PI*2
+      const p = new THREE.Vector3(HOLO.x+Math.cos(angle)*6, HOLO.y, HOLO.z+Math.sin(angle)*6)
+      spePositions.push(p)
+      const spe = new THREE.Mesh(new THREE.CylinderGeometry(0.9,0.9,0.5,6), speMat.clone())
+      spe.position.copy(p)
+      this.group.add(spe)
+
+      // Vertical ring around each SPE
+      const speRingMat = new THREE.ShaderMaterial({
+        vertexShader: PLAIN_VERT, fragmentShader: RING_FRAG,
+        uniforms: { uTime:{value:0}, uVisible:{value:0}, uRadius:{value:0.46}, uColor:{value:new THREE.Color(0x39ff14)} },
+        transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      })
+      const speRing = new THREE.Mesh(new THREE.PlaneGeometry(4,4), speRingMat)
+      speRing.rotation.x = -Math.PI/2
+      speRing.position.copy(p)
+      this.group.add(speRing)
+      this.ringMats.push(speRingMat)
+    }
+
+    // ── Data bus beams: PPE → each SPE ─────────────────────────────
+    // Each bus is a TubeGeometry with an animated flow shader
+    for(let i=0;i<6;i++){
+      const curve = new THREE.LineCurve3(HOLO, spePositions[i])
+      const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.12, 6, false)
+      const busMat = new THREE.ShaderMaterial({
+        vertexShader: PLAIN_VERT, fragmentShader: BUS_FRAG,
+        uniforms: {
+          uTime: { value: 0 },
+          uVisible: { value: 0 },
+        },
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+      // Stagger phase so buses don't all pulse together
+      busMat.uniforms.uTime.value = i * 0.16
+      this.group.add(new THREE.Mesh(tubeGeo, busMat))
+      this.busMats.push(busMat)
+    }
+
+    // Floating label
+    const proj = PROJECTS[0]
+    const lbl = makeFloatingLabel(proj.title, proj.neonColor, () => showProjectPanel(proj))
+    lbl.position.set(HOLO.x + 5, HOLO.y + 8, HOLO.z)
+    lbl.scale.setScalar(1.8)
+    this.group.add(lbl)
   }
 
   update(t: number) {
-    for (const m of this.mats) {
-      if (m.uniforms?.uTime) m.uniforms.uTime.value = t
-    }
-    if (this.particleMat) this.particleMat.uniforms.uTime.value = t
+    this.rackMat.uniforms.uTime.value  = t
+    this.floorMat.uniforms.uTime.value = t
+    this.ringMats.forEach(m => m.uniforms.uTime.value = t)
+    this.busMats.forEach((m, i) => m.uniforms.uTime.value = t + i * 0.16)
+
+    // Rotate PPE core
+    this.group.traverse(o => {
+      if (o.userData.rotating) { o.rotation.y += 0.008; o.rotation.x += 0.003 }
+    })
   }
 
   protected setVisible(v: number) {
-    for (const m of this.mats) {
-      (m as any).uniforms.uVisible.value = v
-    }
-    if (this.particleMat) this.particleMat.uniforms.uVisible.value = v
-    // Also fade ceiling strips (MeshBasicMaterial, no uniforms)
-    this.group.traverse(o => {
-      const mesh = o as THREE.Mesh
-      if (!mesh.isMesh) return
-      const mat = mesh.material as any
-      if (mat && mat.color && !mat.uniforms) mat.opacity = v
-    })
+    this.rackMat.uniforms.uVisible.value  = v
+    this.floorMat.uniforms.uVisible.value = v
+    this.ringMats.forEach(m => m.uniforms.uVisible.value = v)
+    this.busMats.forEach(m => m.uniforms.uVisible.value = v)
+    if (this.ppeMat) this.ppeMat.opacity = v * 0.9
   }
 
   onHover() {}

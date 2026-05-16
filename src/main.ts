@@ -9,6 +9,7 @@ import { CameraPath, SECTION_KEYFRAMES } from './scene/CameraPath'
 import { PROJECTS, SKILLS } from './sections/data'
 import { DISTRICT_COLORS } from './city/CityGenerator'
 import { EnvironmentManager } from './environments/EnvironmentManager'
+import { hidePanel } from './environments/Environment'
 
 // ──────────────────────────────────────────────────────────────
 // RENDERER + SCENE
@@ -250,6 +251,29 @@ async function runBoot() {
   setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none' }, 850)
 }
 runBoot()
+
+// ──────────────────────────────────────────────────────────────
+// LABEL CLICK RAYCASTING
+// ──────────────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster()
+const mouse = new THREE.Vector2()
+window.addEventListener('click', (e) => {
+  // Don't raycast if clicking on HTML overlay
+  if ((e.target as HTMLElement).closest('#env-detail-panel')) return
+  mouse.x =  (e.clientX / innerWidth)  * 2 - 1
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1
+  raycaster.setFromCamera(mouse, camera)
+  const hits = raycaster.intersectObjects(scene.children, true)
+  for (const hit of hits) {
+    const obj = hit.object
+    if (obj.userData.isLabel && obj.userData.onClick) {
+      obj.userData.onClick()
+      return
+    }
+  }
+  // Click anywhere else closes the panel
+  hidePanel()
+})
 
 // ──────────────────────────────────────────────────────────────
 // RESIZE

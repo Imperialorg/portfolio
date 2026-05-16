@@ -10,7 +10,7 @@ export abstract class Environment {
   readonly group = new THREE.Group()
   hoverTargets: THREE.Object3D[] = []
   protected visible = false
-  protected visibleValue = 0  // uVisible 0→1
+  protected visibleValue = 0
 
   abstract create(scene: THREE.Scene): void
   abstract update(t: number): void
@@ -32,7 +32,6 @@ export abstract class Environment {
       onComplete: () => { this.group.visible = false } })
   }
 
-  // Subclasses override to drive uVisible uniforms + GSAP state
   protected setVisible(_v: number) {}
 
   dispose() { this.group.traverse(o => {
@@ -40,40 +39,148 @@ export abstract class Environment {
   }) }
 }
 
-// Minimal glowing text label — no border box, just floating text
+// ─── Project detail panel ─────────────────────────────────────────────────────
+// Singleton overlay shown when user clicks a label
+let _panel: HTMLElement | null = null
+
+function getPanel(): HTMLElement {
+  if (_panel) return _panel
+  _panel = document.createElement('div')
+  _panel.id = 'env-detail-panel'
+  Object.assign(_panel.style, {
+    position: 'fixed', top: '50%', left: '50%',
+    transform: 'translate(-50%, -50%) scale(0.92)',
+    background: 'rgba(4,6,20,0.92)',
+    border: '1px solid var(--neon, #00f5ff)',
+    boxShadow: '0 0 32px var(--neon, #00f5ff)44',
+    padding: '28px 36px',
+    maxWidth: '480px', width: '90vw',
+    zIndex: '9999',
+    fontFamily: 'monospace',
+    color: '#e8f4ff',
+    opacity: '0',
+    pointerEvents: 'none',
+    transition: 'opacity 0.3s, transform 0.3s',
+    borderRadius: '4px',
+  })
+  document.body.appendChild(_panel)
+
+  // Close on outside click
+  document.addEventListener('click', e => {
+    if (_panel && !_panel.contains(e.target as Node)) hidePanel()
+  })
+  return _panel
+}
+
+export function showProjectPanel(project: {
+  title: string, subtitle: string, desc: string,
+  tags: string[], url: string, neonColor: string
+}) {
+  const p = getPanel()
+  p.style.setProperty('--neon', project.neonColor)
+  p.style.borderColor = project.neonColor + '88'
+  p.style.boxShadow = `0 0 40px ${project.neonColor}33`
+  p.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div>
+        <div style="color:${project.neonColor};font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px">${project.subtitle}</div>
+        <div style="font-size:20px;font-weight:bold;color:#fff">${project.title}</div>
+      </div>
+      <button id="env-panel-close" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1;padding:0 0 0 16px">✕</button>
+    </div>
+    <div style="font-size:13px;line-height:1.7;color:#c8d8ef;margin-bottom:16px">${project.desc}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px">
+      ${project.tags.map(t => `<span style="background:${project.neonColor}18;border:1px solid ${project.neonColor}44;color:${project.neonColor};font-size:10px;padding:3px 8px;border-radius:2px">${t}</span>`).join('')}
+    </div>
+    <a href="${project.url}" target="_blank" rel="noopener"
+       style="display:inline-block;padding:9px 20px;background:${project.neonColor}22;border:1px solid ${project.neonColor};color:${project.neonColor};text-decoration:none;font-size:12px;letter-spacing:1px;transition:background 0.2s"
+       onmouseover="this.style.background='${project.neonColor}44'"
+       onmouseout="this.style.background='${project.neonColor}22'">
+      VIEW ON GITHUB →
+    </a>
+  `
+  p.querySelector('#env-panel-close')?.addEventListener('click', e => { e.stopPropagation(); hidePanel() })
+  p.style.pointerEvents = 'all'
+  p.style.opacity = '1'
+  p.style.transform = 'translate(-50%, -50%) scale(1)'
+}
+
+export function hidePanel() {
+  const p = _panel
+  if (!p) return
+  p.style.opacity = '0'
+  p.style.transform = 'translate(-50%, -50%) scale(0.92)'
+  p.style.pointerEvents = 'none'
+}
+
+// ─── Floating 3D label (clickable) ───────────────────────────────────────────
+export function makeFloatingLabel(
+  title: string,
+  color: string,
+  onClick: () => void
+): THREE.Mesh {
+  const W = 400, H = 56
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')!
+
+  // Subtle background
+  const bg = ctx.createLinearGradient(0, 0, W, 0)
+  bg.addColorStop(0, color + '00')
+  bg.addColorStop(0.15, color + '18')
+  bg.addColorStop(0.85, color + '18')
+  bg.addColorStop(1, color + '00')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+
+  // Tick mark left edge
+  ctx.fillStyle = color
+  ctx.fillRect(0, H * 0.2, 3, H * 0.6)
+
+  // Title text with glow
+  ctx.font = 'bold 18px monospace'
+  ctx.textAlign = 'left'
+  ctx.shadowColor = color; ctx.shadowBlur = 14
+  ctx.fillStyle = color
+  ctx.fillText(title, 16, 34)
+
+  // "CLICK FOR DETAILS" hint
+  ctx.font = '10px monospace'
+  ctx.shadowBlur = 4
+  ctx.fillStyle = color + 'aa'
+  ctx.fillText('[ CLICK FOR DETAILS ]', 16, 50)
+
+  const tex = new THREE.CanvasTexture(canvas)
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false,
+    side: THREE.DoubleSide,
+  })
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.12), mat)
+  mesh.userData.isLabel = true
+  mesh.userData.onClick = onClick
+  return mesh
+}
+
+// ─── Legacy label helpers (used by CityGenerator) ────────────────────────────
 export function makeLabel(text: string, sub: string, color = '#00f5ff'): THREE.Texture {
   const W = 512, H = 80
   const c = document.createElement('canvas'); c.width = W; c.height = H
   const ctx = c.getContext('2d')!
   ctx.clearRect(0, 0, W, H)
-
-  // Soft glow behind text
   const grd = ctx.createRadialGradient(W/2, H/2, 4, W/2, H/2, W/2)
-  grd.addColorStop(0, color + '22')
-  grd.addColorStop(1, 'transparent')
-  ctx.fillStyle = grd
-  ctx.fillRect(0, 0, W, H)
-
-  // Main label
-  ctx.fillStyle = color
-  ctx.font = 'bold 22px monospace'
+  grd.addColorStop(0, color + '22'); grd.addColorStop(1, 'transparent')
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = color; ctx.font = 'bold 22px monospace'
   ctx.textAlign = 'center'
-  ctx.shadowColor = color
-  ctx.shadowBlur = 12
+  ctx.shadowColor = color; ctx.shadowBlur = 12
   ctx.fillText(text, W/2, 32)
-
-  // Sub text
-  ctx.fillStyle = 'rgba(200,230,255,0.6)'
-  ctx.font = '13px monospace'
-  ctx.shadowBlur = 6
-  ctx.fillText(sub, W/2, 54)
-
+  ctx.fillStyle = 'rgba(200,230,255,0.6)'; ctx.font = '13px monospace'
+  ctx.shadowBlur = 6; ctx.fillText(sub, W/2, 54)
   return new THREE.CanvasTexture(c)
 }
 
 export function makeLabelMesh(text: string, sub: string, color = '#00f5ff'): THREE.Mesh {
   const tex = makeLabel(text, sub, color)
   const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide })
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.5), mat)
-  return mesh
+  return new THREE.Mesh(new THREE.PlaneGeometry(5, 1.5), mat)
 }
