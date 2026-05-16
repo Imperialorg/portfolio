@@ -62,6 +62,8 @@ export class CityGenerator {
   meshD!: THREE.InstancedMesh       // needle towers (extra 5% pass)
   meshLedge!: THREE.InstancedMesh   // dark floor-plate rings
   private mats: THREE.ShaderMaterial[] = []
+  // Building footprints stored during generate() for reuse in sign/equipment placement
+  private buildings: Array<{ wx: number; wz: number; fw: number; fd: number; h: number }> = []
 
   generate(scene: THREE.Scene) {
     const MAX = GRID * GRID
@@ -148,6 +150,7 @@ export class CityGenerator {
         pos.set(wx, lowH / 2, wz); scl.set(fw, lowH, fd)
         mtx.compose(pos, quat, scl)
         this.sectionLow.setMatrixAt(cLow, mtx); cLow++
+        this.buildings.push({ wx, wz, fw, fd, h })
 
         // ── sectionMid: if h > 40 ───────────────────────
         if (h > 40) {
@@ -376,20 +379,14 @@ export class CityGenerator {
       const ci = signCounts[meshIdx]
       if (ci >= SIGN_PER_MESH) continue
 
-      const ix = randInt(1, GRID - 2)
-      const iz = randInt(1, GRID - 2)
-      const wx = ix * CELL - HALF
-      const wz = iz * CELL - HALF
-      const nx = (ix / GRID) * 4 - 2
-      const nz = (iz / GRID) * 4 - 2
-      const hf = Math.max(0.18, 1 - Math.sqrt(nx * nx + nz * nz) / 3 * 0.6)
-      const h  = Math.max(8, (22 + fbm(nx, nz, 5) * 170) * hf) + rand(4, 28)
-      const fw = rand(BLOCK * 0.55, BLOCK * 0.85)
-      const fd = rand(BLOCK * 0.55, BLOCK * 0.85)
+      // Pick a real building from stored footprints
+      const b = this.buildings[Math.floor(Math.random() * this.buildings.length)]
+      const { wx, wz, fw, fd, h } = b
 
       const signW = rand(8, 22)
       const signH = rand(4, 11)
-      const signY = rand(h * 0.25, h * 0.55)
+      // Place within lower section (bottom 60% of building height)
+      const signY = rand(signH * 0.5 + 2, h * 0.58 - signH * 0.5)
 
       const face = Math.floor(Math.random() * 4)
       let px = wx, pz = wz, angle = 0
@@ -431,42 +428,31 @@ export class CityGenerator {
     const scl = new THREE.Vector3()
     const quat = new THREE.Quaternion()
 
-    for (let ix = 0; ix < GRID; ix++) {
-      for (let iz = 0; iz < GRID; iz++) {
-        if (ix % 5 === 0 || iz % 5 === 0) continue
-        const wx = ix * CELL - HALF
-        const wz = iz * CELL - HALF
-        const nx = (ix / GRID) * 4 - 2
-        const nz = (iz / GRID) * 4 - 2
-        const hf = Math.max(0.18, 1 - Math.sqrt(nx*nx + nz*nz) / 3 * 0.6)
-        const h = Math.max(8, (22 + fbm(nx, nz, 5) * 170) * hf) + rand(4, 28)
-        const fw = rand(BLOCK * 0.55, BLOCK * 0.85)
-        const fd = rand(BLOCK * 0.55, BLOCK * 0.85)
+    for (const b of this.buildings) {
+      const { wx, wz, fw, fd, h } = b
+      if (h < 60 || Math.random() > 0.20) continue
 
-        if (h < 60 || Math.random() > 0.20) continue
+      const count = randInt(1, 3)
+      for (let e = 0; e < count; e++) {
+        const ex = wx + rand(-fw*0.3, fw*0.3)
+        const ez = wz + rand(-fd*0.3, fd*0.3)
+        const roll = Math.random()
 
-        const count = randInt(1, 3)
-        for (let e = 0; e < count; e++) {
-          const ex = wx + rand(-fw*0.3, fw*0.3)
-          const ez = wz + rand(-fd*0.3, fd*0.3)
-          const roll = Math.random()
-
-          if (roll < 0.5 && cBox < 200) {
-            const bw = rand(2, 6), bh = rand(3, 8), bd = rand(2, 6)
-            pos.set(ex, h + bh/2, ez); scl.set(bw, bh, bd)
-            mtx.compose(pos, quat, scl)
-            boxMesh.setMatrixAt(cBox++, mtx)
-          } else if (roll < 0.8 && cCyl < 200) {
-            const r = rand(1, 3), ch = rand(4, 10)
-            pos.set(ex, h + ch/2, ez); scl.set(r*2, ch, r*2)
-            mtx.compose(pos, quat, scl)
-            cylMesh.setMatrixAt(cCyl++, mtx)
-          } else if (cDish < 200) {
-            const r = rand(2, 5)
-            pos.set(ex, h + 0.3, ez); scl.set(r*2, 1, r*2)
-            mtx.compose(pos, quat, scl)
-            dishMesh.setMatrixAt(cDish++, mtx)
-          }
+        if (roll < 0.5 && cBox < 200) {
+          const bw = rand(2, 6), bh = rand(3, 8), bd = rand(2, 6)
+          pos.set(ex, h + bh/2, ez); scl.set(bw, bh, bd)
+          mtx.compose(pos, quat, scl)
+          boxMesh.setMatrixAt(cBox++, mtx)
+        } else if (roll < 0.8 && cCyl < 200) {
+          const r = rand(1, 3), ch = rand(4, 10)
+          pos.set(ex, h + ch/2, ez); scl.set(r*2, ch, r*2)
+          mtx.compose(pos, quat, scl)
+          cylMesh.setMatrixAt(cCyl++, mtx)
+        } else if (cDish < 200) {
+          const r = rand(2, 5)
+          pos.set(ex, h + 0.3, ez); scl.set(r*2, 1, r*2)
+          mtx.compose(pos, quat, scl)
+          dishMesh.setMatrixAt(cDish++, mtx)
         }
       }
     }
