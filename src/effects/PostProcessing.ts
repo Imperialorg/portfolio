@@ -69,10 +69,10 @@ export class PostProcessing {
 
     const bloom = new BloomEffect({
       blendFunction: BlendFunction.ADD,
-      luminanceThreshold: 0.25,
-      luminanceSmoothing: 0.4,
-      intensity: 2.4,
-      radius: 0.6,
+      luminanceThreshold: 0.55,
+      luminanceSmoothing: 0.3,
+      intensity: 3.2,
+      radius: 0.5,
     })
 
     const lensStreak = new LensStreakEffect(0.45)

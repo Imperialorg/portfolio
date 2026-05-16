@@ -19,7 +19,11 @@
 
 ## Target Aesthetic (from refs)
 
-- Walls: **near-black** (`#050508` range) paneled concrete/metal — NOT glowing
+- Walls: **dark but alive** — never pitch-black. Always have subtle path-traced-style ambient:
+  - Soft blue-purple sky bounce from above
+  - Warm orange city glow rising from street level
+  - Colored bleed from nearest neon district color
+  - Result: dark charcoal that reads as `#0a0a14` minimum, never `#000000`
 - Windows: sparse, small, individually lit — ~20–40% occupancy, **not a grid**
 - Setback silhouette: clearly stepped (already have sectionLow/Mid/Top — keep this)
 - Ledges: **visible horizontal floor plates** every N floors — real geometry, not shader lines
@@ -33,9 +37,18 @@
 
 ### 1. `src/shaders/index.ts` — `buildingFrag`
 
-#### Wall base
+#### Wall base — fake path-traced ambient (ALWAYS VISIBLE)
 ```glsl
-vec3 color = vec3(0.018, 0.018, 0.026); // charcoal, nearly black
+// Sky ambient: cool blue-purple from above
+vec3 skyAmbient = vec3(0.04, 0.04, 0.08);
+// City glow: warm orange rising from street — stronger near ground
+float streetBlend = clamp(1.0 - vWorldPos.y / 60.0, 0.0, 1.0);
+vec3 cityAmbient = vec3(0.06, 0.03, 0.01) * streetBlend;
+// Neon district bleed: very subtle tint from district color
+vec3 neonAmbient = vNeonColor * 0.04;
+// Combined: walls are ALWAYS this dark but visible base
+vec3 color = skyAmbient + cityAmbient + neonAmbient;
+// = roughly #080812 at high altitude, #0e0906 near street — never black
 ```
 
 #### Window grid — SPARSE

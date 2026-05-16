@@ -44,75 +44,49 @@ float hash(vec2 p) {
 
 void main() {
   // ── WALL BASE ──────────────────────────────────────────────
-  vec3 color = vec3(0.006, 0.006, 0.010);
+  vec3 color = vec3(0.018, 0.018, 0.026);
 
   // ── WINDOW GRID ────────────────────────────────────────────
   float density = mix(10.0, 32.0, clamp(vHeight/250.0,0.0,1.0));
-  vec2 wScale = vec2(density*0.52, density);
+  vec2 wScale = vec2(16.0, 24.0);
   vec2 wCell  = floor(vUv * wScale);
   vec2 wFrac  = fract(vUv * wScale);
 
-  // Window frame (inset from cell edges)
-  float frame = step(0.12,wFrac.x)*step(0.10,wFrac.y)*
-                step(wFrac.x,0.88)*step(wFrac.y,0.86);
+  // Window frame — thicker borders → small windows
+  float frame = step(0.22, wFrac.x) * step(0.18, wFrac.y) *
+                step(wFrac.x, 0.78) * step(wFrac.y, 0.80);
 
-  // Per-window random: on/off + color
+  // Per-window random: static on/off (no flicker)
   float wh = hash(wCell + floor(vWorldPos.xz * 0.008));
-  float flicker = step(0.03, fract(sin(uTime*(hash(wCell+vec2(0.7,0.3))*4.0+0.5)+wh*100.0)*0.5+0.5));
-  float isOn = step(0.28, wh) * flicker;
+  float isOn = step(0.70, wh);
 
   vec3 wColor;
-  if      (wh < 0.28) wColor = vec3(0.0);
-  else if (wh < 0.52) wColor = vec3(1.0, 0.82, 0.40) * 2.2;   // warm amber
-  else if (wh < 0.70) wColor = vec3(0.38, 0.62, 1.0) * 2.0;   // cool blue
-  else if (wh < 0.84) wColor = vNeonColor * 3.0;               // district neon
-  else                wColor = vec3(0.9, 0.28, 1.0) * 2.5;     // purple
+  if (wh < 0.85) wColor = vec3(1.0, 0.75, 0.35) * 1.4;  // warm amber
+  else           wColor = vec3(0.4, 0.6, 1.0) * 1.2;     // cool blue
 
   color += frame * isOn * wColor;
 
-  // ── FLOOR LEDGES (thin dark horizontal lines) ───────────────
-  float floorLines = 1.0 - smoothstep(0.0, 0.018, fract(vUv.y * density));
-  color -= floorLines * 0.004;
-
-  // ── NEON GLOWING BANDS ─────────────────────────────────────
-  vec2 bSeed = floor(vWorldPos.xz * 0.012);
-  float b1pos = hash(bSeed + vec2(3.1, 7.4));
-  float b2pos = hash(bSeed + vec2(8.3, 2.1));
-  float bWidth = 0.006;
-  float band1 = smoothstep(bWidth,0.0,abs(vUv.y - b1pos)) * 3.5;
-  float band2 = smoothstep(bWidth,0.0,abs(vUv.y - b2pos)) * 3.5;
-  vec3 bColor1 = vNeonColor;
-  vec3 bColor2 = hash(bSeed + vec2(5.5, 1.2)) > 0.5
-    ? vec3(1.0, 0.08, 0.52)   // magenta
-    : vec3(0.05, 0.85, 1.0);  // cyan
-  float bPulse1 = 0.65 + 0.35*sin(uTime*0.9 + hash(bSeed)*12.0);
-  float bPulse2 = 0.65 + 0.35*sin(uTime*1.1 + hash(bSeed+vec2(1.0))*12.0);
-  color += band1 * bColor1 * bPulse1;
-  color += band2 * bColor2 * bPulse2;
-
   // ── VERTICAL EDGE STRIPS ────────────────────────────────────
-  float edgeGlow = (1.0 - smoothstep(0.0, 0.018, vUv.x)) +
-                   (1.0 - smoothstep(0.0, 0.018, 1.0-vUv.x));
-  float ePulse = 0.5 + 0.5*sin(uTime*0.6 + hash(floor(vWorldPos.xz*0.01))*20.0);
-  color += edgeGlow * vNeonColor * ePulse * 1.8;
+  float edgeGlow = (1.0 - smoothstep(0.0, 0.008, vUv.x)) +
+                   (1.0 - smoothstep(0.0, 0.008, 1.0 - vUv.x));
+  color += edgeGlow * vNeonColor * 0.6;
 
   // ── ROOFTOP CAP ─────────────────────────────────────────────
-  float roofLine = smoothstep(0.97, 1.0, vUv.y);
-  color += roofLine * vNeonColor * 4.0;
-  float equip = step(0.985, vUv.y) * step(0.3, hash(floor(vUv*vec2(8.0,1.0)+floor(vWorldPos.xz*0.01))));
-  color += equip * vNeonColor * 2.0;
+  float roofLine = smoothstep(0.985, 1.0, vUv.y);
+  color += roofLine * vNeonColor * 2.0;
 
-  // ── FRESNEL / EDGE GLOW ─────────────────────────────────────
-  vec3 viewDir = normalize(cameraPosition - vWorldPos);
-  float fresnel = pow(1.0 - max(dot(vNormal,viewDir),0.0), 3.5);
-  color += vNeonColor * fresnel * 1.2;
+  // ── PANEL SEAM LINES ────────────────────────────────────────
+  float panelSeamV = 1.0 - smoothstep(0.0, 0.006, fract(vUv.x * 8.0));
+  color -= panelSeamV * 0.008;
+  float panelSeamH = 1.0 - smoothstep(0.0, 0.004, fract(vUv.y * 6.0));
+  color -= panelSeamH * 0.006;
 
   // ── CLOSE-UP CONCRETE DETAIL ────────────────────────────────
   float camDist = length(vWorldPos - cameraPosition);
   float closeBlend = 1.0 - smoothstep(8.0, 35.0, camDist);
   vec2 grainUV = floor(vUv * vec2(80.0, 160.0));
   float grain = hash(grainUV + floor(vWorldPos.xz * 0.02));
-  color += (grain - 0.5) * closeBlend * 0.025;
+  color += (grain - 0.5) * closeBlend * 0.015;
 
   // ── FOG ─────────────────────────────────────────────────────
   float dist = length(vWorldPos - cameraPosition);

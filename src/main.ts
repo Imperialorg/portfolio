@@ -43,7 +43,8 @@ sky.create(scene)
 // ──────────────────────────────────────────────────────────────
 const city = new CityGenerator()
 city.generate(scene)
-city.addFacadeSigns(scene)
+city.addBillboardScreens(scene)
+city.addRooftopEquipment(scene)
 city.addSearchlights(scene)
 // antennas removed — red bars cluttering skyline
 

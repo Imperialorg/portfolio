@@ -60,6 +60,7 @@ export class CityGenerator {
   sectionMid!: THREE.InstancedMesh  // middle section — 0.68x width, next 23%
   sectionTop!: THREE.InstancedMesh  // top spire — 0.38x width, top 15%
   meshD!: THREE.InstancedMesh       // needle towers (extra 5% pass)
+  meshLedge!: THREE.InstancedMesh   // dark floor-plate rings
   private mats: THREE.ShaderMaterial[] = []
 
   generate(scene: THREE.Scene) {
@@ -104,28 +105,19 @@ export class CityGenerator {
     this.meshD.frustumCulled = false
     this.mats.push(this.meshD.material as THREE.ShaderMaterial)
 
+    // ── Ledge rings ──────────────────────────────────────
+    const ledgeGeo = new THREE.BoxGeometry(1, 1, 1)
+    const ledgeMat = new THREE.MeshBasicMaterial({ color: 0x0c0c14 })
+    this.meshLedge = new THREE.InstancedMesh(ledgeGeo, ledgeMat, GRID * GRID * 6)
+    this.meshLedge.frustumCulled = false
+    this.meshLedge.count = 0
+
     const mtx  = new THREE.Matrix4()
     const pos  = new THREE.Vector3()
     const scl  = new THREE.Vector3()
     const quat = new THREE.Quaternion()
 
-    let cLow = 0, cMid = 0, cTop = 0, cD = 0
-
-    // Rooftop glow discs (up to 34 per color)
-    const discGeo = new THREE.CylinderGeometry(1, 1, 0.3, 16)
-    const discMeshes: THREE.InstancedMesh[] = []
-    const DISC_COLORS = [0x00f5ff, 0xff00aa, 0xff6b1a, 0x7b2fff, 0x00ff88, 0xffe642]
-    for (const col of DISC_COLORS) {
-      const discMat = new THREE.MeshBasicMaterial({
-        color: col, transparent: true, opacity: 0.7,
-        blending: THREE.AdditiveBlending, depthWrite: false,
-      })
-      const dm = new THREE.InstancedMesh(discGeo, discMat, 34)
-      dm.frustumCulled = false
-      dm.count = 0
-      discMeshes.push(dm)
-    }
-    const discCounts = new Int32Array(DISC_COLORS.length)
+    let cLow = 0, cMid = 0, cTop = 0, cD = 0, cLedge = 0
 
     for (let ix = 0; ix < GRID; ix++) {
       for (let iz = 0; iz < GRID; iz++) {
@@ -193,18 +185,31 @@ export class CityGenerator {
           this.meshD.setMatrixAt(cD, mtx); cD++
         }
 
-        // Rooftop glow disc — 15% chance
-        if (Math.random() < 0.15) {
-          const colorIdx = di % DISC_COLORS.length
-          const dm = discMeshes[colorIdx]
-          const ci = discCounts[colorIdx]
-          if (ci < 34) {
-            const discR = fw * 0.6
-            pos.set(wx, h, wz); scl.set(discR, 1, discR)
-            mtx.compose(pos, quat, scl)
-            dm.setMatrixAt(ci, mtx)
-            discCounts[colorIdx]++
-          }
+        // ── Ledge rings on sectionLow ────────────────────
+        const ledgeCount = Math.floor(rand(2, 4))
+        for (let li = 1; li <= ledgeCount; li++) {
+          const ly = (li / (ledgeCount + 1)) * lowH
+          pos.set(wx, ly, wz)
+          scl.set(fw + 1.2, 0.7, fd + 1.2)
+          mtx.compose(pos, quat, scl)
+          this.meshLedge.setMatrixAt(cLedge, mtx)
+          cLedge++
+        }
+        // One ledge at junction between sectionLow and sectionMid
+        if (h > 40) {
+          pos.set(wx, h * 0.62, wz)
+          scl.set(fw * 0.72, 0.7, fd * 0.72)
+          mtx.compose(pos, quat, scl)
+          this.meshLedge.setMatrixAt(cLedge, mtx)
+          cLedge++
+        }
+        // One ledge at junction between sectionMid and sectionTop
+        if (h > 100) {
+          pos.set(wx, h * 0.85, wz)
+          scl.set(fw * 0.42, 0.7, fd * 0.42)
+          mtx.compose(pos, quat, scl)
+          this.meshLedge.setMatrixAt(cLedge, mtx)
+          cLedge++
         }
       }
     }
@@ -222,157 +227,152 @@ export class CityGenerator {
       scene.add(mesh)
     }
 
-    // Add rooftop glow discs
-    for (let i = 0; i < discMeshes.length; i++) {
-      discMeshes[i].count = discCounts[i]
-      discMeshes[i].instanceMatrix.needsUpdate = true
-      scene.add(discMeshes[i])
-    }
+    this.meshLedge.count = cLedge
+    this.meshLedge.instanceMatrix.needsUpdate = true
+    scene.add(this.meshLedge)
   }
 
-  addFacadeSigns(scene: THREE.Scene) {
-    // Atlas: 512×384, 2 cols × 3 rows, each tile 256×128
-    const ATLAS_W = 512, ATLAS_H = 384
-    const TILE_W  = 256, TILE_H  = 128
+  addBillboardScreens(scene: THREE.Scene) {
+    const SIGN_PER_MESH = 20
 
-    const cvs = document.createElement('canvas')
-    cvs.width = ATLAS_W; cvs.height = ATLAS_H
-    const ctx = cvs.getContext('2d')!
-
-    ctx.fillStyle = '#000'
-    ctx.fillRect(0, 0, ATLAS_W, ATLAS_H)
-
-    const drawTile = (
-      col: number, row: number,
-      draw: (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => void
-    ) => {
-      const tx = col * TILE_W, ty = row * TILE_H
-      ctx.save()
-      ctx.beginPath(); ctx.rect(tx, ty, TILE_W, TILE_H); ctx.clip()
-      draw(ctx, tx, ty, TILE_W, TILE_H)
-      ctx.restore()
+    const makeCanvas = (draw: (ctx: CanvasRenderingContext2D) => void): THREE.CanvasTexture => {
+      const cvs = document.createElement('canvas')
+      cvs.width = 512; cvs.height = 256
+      const ctx = cvs.getContext('2d')!
+      draw(ctx)
+      return new THREE.CanvasTexture(cvs)
     }
 
-    // Style 1: Cyan circuit board
-    drawTile(0, 0, (c, x, y, w, h) => {
-      c.strokeStyle = '#00f5ff'; c.lineWidth = 1.5
-      for (let i = 0; i < 6; i++) {
-        const ly = y + 18 + i * 16
-        c.beginPath(); c.moveTo(x + 10, ly); c.lineTo(x + w - 10, ly); c.stroke()
+    // Design 1: Cyan circuit schematic
+    const tex0 = makeCanvas(ctx => {
+      ctx.fillStyle = '#000'; ctx.fillRect(0,0,512,256)
+      ctx.strokeStyle = '#00f5ff'; ctx.lineWidth = 2
+      for (let i=0;i<6;i++) { ctx.beginPath(); ctx.moveTo(20,30+i*36); ctx.lineTo(492,30+i*36); ctx.stroke() }
+      ctx.fillStyle = '#00f5ff'
+      for (let i=0;i<8;i++) for (let j=0;j<5;j++) {
+        ctx.beginPath(); ctx.arc(40+i*60, 30+j*36, 5, 0, Math.PI*2); ctx.fill()
       }
-      c.fillStyle = '#00f5ff'
-      for (let i = 0; i < 8; i++) {
-        for (let j = 0; j < 3; j++) {
-          const cx2 = x + 20 + i * 28, cy2 = y + 26 + j * 34
-          c.beginPath(); c.arc(cx2, cy2, 3, 0, Math.PI * 2); c.fill()
-          c.beginPath(); c.arc(cx2, cy2, 7, 0, Math.PI * 2); c.stroke()
-        }
+      ctx.font = 'bold 32px monospace'; ctx.fillStyle = '#00f5ff88'; ctx.textAlign='center'
+      ctx.fillText('SYSTEM ONLINE', 256, 230)
+    })
+
+    // Design 2: Magenta DANGER bilingual
+    const tex1 = makeCanvas(ctx => {
+      ctx.fillStyle = '#000'; ctx.fillRect(0,0,512,256)
+      ctx.fillStyle = '#ff00aa18'
+      for (let i=-4;i<20;i+=2) { ctx.beginPath(); ctx.moveTo(i*30,0); ctx.lineTo(i*30+30,0); ctx.lineTo(i*30+30+256,256); ctx.lineTo(i*30+256,256); ctx.closePath(); ctx.fill() }
+      ctx.strokeStyle = '#ff00aa'; ctx.lineWidth = 3; ctx.strokeRect(6,6,500,244)
+      ctx.fillStyle = '#ff00aa'; ctx.font = 'bold 56px monospace'; ctx.textAlign='center'
+      ctx.fillText('DANGER', 256, 110)
+      ctx.font = 'bold 42px serif'
+      ctx.fillText('危険区域', 256, 180)
+      ctx.font = '18px monospace'; ctx.fillStyle = '#ff00aa88'
+      ctx.fillText('AUTHORIZED PERSONNEL ONLY', 256, 230)
+    })
+
+    // Design 3: Amber stock/price ticker
+    const tex2 = makeCanvas(ctx => {
+      ctx.fillStyle = '#0a0500'; ctx.fillRect(0,0,512,256)
+      ctx.fillStyle = '#ff8800'; ctx.font='bold 28px monospace'; ctx.textAlign='left'
+      const rows = ['GPU-X  \u25b2 4821.3', 'NET-7  \u25bc 219.08', 'SYS-4  \u25b2 1104.7', 'AI-12  \u25b2 8820.0', 'HRD-3  \u25bc  553.2']
+      rows.forEach((r,i) => ctx.fillText(r, 20, 48+i*44))
+      ctx.strokeStyle = '#ff8800'; ctx.lineWidth = 2; ctx.strokeRect(6,6,500,244)
+      ctx.fillStyle = '#ff880044'; ctx.fillRect(6,6,500,30)
+      ctx.fillStyle = '#ff8800'; ctx.font='bold 22px monospace'; ctx.textAlign='center'
+      ctx.fillText('\u25c8 NEON DISTRICT EXCHANGE \u25c8', 256, 26)
+    })
+
+    // Design 4: White/blue tech corp hexagons
+    const tex3 = makeCanvas(ctx => {
+      ctx.fillStyle = '#000510'; ctx.fillRect(0,0,512,256)
+      ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 2
+      for (let r=20;r<110;r+=22) {
+        ctx.beginPath()
+        for (let a=0;a<6;a++) { const ang=a*Math.PI/3-Math.PI/6; const x=256+Math.cos(ang)*r; const y=128+Math.sin(ang)*r; a===0?ctx.moveTo(x,y):ctx.lineTo(x,y) }
+        ctx.closePath(); ctx.stroke()
       }
+      ctx.fillStyle = '#4488ff'; ctx.font='bold 22px monospace'; ctx.textAlign='center'
+      ctx.fillText('NEXUS CORP', 256, 220)
+      ctx.font='14px monospace'; ctx.fillStyle='#4488ff88'
+      ctx.fillText('EST. 2047  |  SECTOR 7', 256, 248)
     })
 
-    // Style 2: Magenta WARNING + diagonal stripes
-    drawTile(1, 0, (c, x, y, w, h) => {
-      c.fillStyle = '#ff00aa22'; c.fillRect(x, y, w, h)
-      c.fillStyle = '#ff00aa44'
-      for (let i = -4; i < 14; i += 2) {
-        const sx = x + i * 24
-        c.beginPath()
-        c.moveTo(sx, y); c.lineTo(sx + 20, y)
-        c.lineTo(sx + 20 + h, y + h); c.lineTo(sx + h, y + h)
-        c.closePath(); c.fill()
+    // Design 5: Green matrix cascade
+    const tex4 = makeCanvas(ctx => {
+      ctx.fillStyle = '#000a00'; ctx.fillRect(0,0,512,256)
+      ctx.fillStyle = '#00ff44'; ctx.font='12px monospace'
+      for (let c=0;c<32;c++) for (let r=0;r<16;r++) {
+        if (Math.random()>0.45) ctx.fillText(Math.random()>0.5?'1':'0', 8+c*16, 14+r*15)
       }
-      c.fillStyle = '#ff00aa'; c.font = 'bold 26px monospace'; c.textAlign = 'center'
-      c.fillText('WARNING', x + w / 2, y + h / 2 + 9)
-      c.strokeStyle = '#ff00aa'; c.lineWidth = 2
-      c.strokeRect(x + 4, y + 4, w - 8, h - 8)
+      ctx.fillStyle = '#00ff4422'; ctx.fillRect(0,0,512,256)
+      ctx.strokeStyle = '#00ff44'; ctx.lineWidth = 2; ctx.strokeRect(4,4,504,248)
+      ctx.fillStyle = '#00ff44'; ctx.font='bold 34px monospace'; ctx.textAlign='center'
+      ctx.shadowBlur=16; ctx.shadowColor='#00ff44'
+      ctx.fillText('MATRIX CORE', 256, 148)
+      ctx.shadowBlur=0
     })
 
-    // Style 3: Orange/amber kanji-style block characters
-    drawTile(0, 1, (c, x, y, w, h) => {
-      c.fillStyle = '#ff6b1a'; c.font = 'bold 40px serif'; c.textAlign = 'center'
-      const chars = ['火', '電', '夜', '光']
-      chars.forEach((ch, i) => c.fillText(ch, x + 28 + i * 52, y + 82))
-      c.strokeStyle = '#ff6b1a88'; c.lineWidth = 1.5
-      c.strokeRect(x + 4, y + 4, w - 8, h - 8)
+    // Design 6: Purple RESTRICTED ACCESS
+    const tex5 = makeCanvas(ctx => {
+      ctx.fillStyle = '#05000a'; ctx.fillRect(0,0,512,256)
+      ctx.strokeStyle = '#aa00ff'; ctx.lineWidth = 3; ctx.strokeRect(6,6,500,244)
+      ctx.strokeStyle = '#aa00ff66'; ctx.lineWidth = 1; ctx.strokeRect(16,16,480,224)
+      ctx.fillStyle = '#aa00ff'; ctx.font='bold 40px monospace'; ctx.textAlign='center'
+      ctx.shadowBlur=20; ctx.shadowColor='#aa00ff'
+      ctx.fillText('RESTRICTED', 256, 100)
+      ctx.fillText('ACCESS', 256, 155)
+      ctx.shadowBlur=0
+      ctx.font='16px monospace'; ctx.fillStyle='#aa00ff88'
+      ctx.fillText('CLEARANCE LEVEL \u03a9 REQUIRED', 256, 220)
     })
 
-    // Style 4: Green matrix grid
-    drawTile(1, 1, (c, x, y, w, h) => {
-      c.strokeStyle = '#00ff8844'; c.lineWidth = 1
-      for (let i = 0; i <= 16; i++) { const lx = x + i * (w / 16); c.beginPath(); c.moveTo(lx, y); c.lineTo(lx, y + h); c.stroke() }
-      for (let i = 0; i <= 8;  i++) { const ly = y + i * (h / 8);  c.beginPath(); c.moveTo(x, ly); c.lineTo(x + w, ly); c.stroke() }
-      c.fillStyle = '#00ff88'; c.font = '10px monospace'
-      for (let r = 0; r < 8; r++) {
-        for (let col = 0; col < 10; col++) {
-          if (Math.random() > 0.55) c.fillText(Math.random() > 0.5 ? '1' : '0', x + 5 + col * 24, y + 14 + r * 14)
-        }
-      }
+    // Design 7: Red emergency alert
+    const tex6 = makeCanvas(ctx => {
+      ctx.fillStyle = '#0a0000'; ctx.fillRect(0,0,512,256)
+      ctx.fillStyle = '#ff112244'
+      ctx.fillRect(0,0,512,256)
+      ctx.strokeStyle = '#ff1122'; ctx.lineWidth = 4; ctx.strokeRect(6,6,500,244)
+      ctx.fillStyle = '#ff1122'; ctx.font='bold 80px monospace'; ctx.textAlign='center'
+      ctx.fillText('\u26a0', 256, 140)
+      ctx.font='bold 28px monospace'
+      ctx.fillText('ALERT', 256, 200)
+      ctx.font='14px monospace'; ctx.fillStyle='#ff112288'
+      ctx.fillText('EMERGENCY BROADCAST ACTIVE', 256, 240)
     })
 
-    // Style 5: Red triangle warning patterns
-    drawTile(0, 2, (c, x, y, w, h) => {
-      const tris: [number, number][] = [[0.15, 0.2], [0.5, 0.2], [0.85, 0.2], [0.32, 0.72], [0.68, 0.72]]
-      c.lineWidth = 2.5
-      tris.forEach(([tx2, ty2]) => {
-        const cx2 = x + tx2 * w, cy2 = y + ty2 * h, s = 22
-        c.fillStyle = '#ff224422'; c.strokeStyle = '#ff2244'
-        c.beginPath(); c.moveTo(cx2, cy2 - s); c.lineTo(cx2 + s, cy2 + s * 0.6); c.lineTo(cx2 - s, cy2 + s * 0.6); c.closePath()
-        c.fill(); c.stroke()
-        c.fillStyle = '#ff2244'; c.font = 'bold 14px monospace'; c.textAlign = 'center'
-        c.fillText('!', cx2, cy2 + s * 0.35)
-      })
+    // Design 8: Orange construction/industrial
+    const tex7 = makeCanvas(ctx => {
+      ctx.fillStyle = '#080400'; ctx.fillRect(0,0,512,256)
+      ctx.fillStyle = '#ff8800'
+      for (let i=-4;i<20;i+=2) { ctx.beginPath(); ctx.moveTo(i*28,0); ctx.lineTo(i*28+28,0); ctx.lineTo(i*28+28+256,256); ctx.lineTo(i*28+256,256); ctx.closePath(); ctx.fill() }
+      ctx.fillStyle = '#080400'
+      for (let i=-4;i<20;i+=2) { ctx.beginPath(); ctx.moveTo((i+1)*28,0); ctx.lineTo((i+1)*28+28,0); ctx.lineTo((i+1)*28+28+256,256); ctx.lineTo((i+1)*28+256,256); ctx.closePath(); ctx.fill() }
+      ctx.fillStyle = '#ff8800'; ctx.font='bold 52px monospace'; ctx.textAlign='center'
+      ctx.fillText('UNDER', 256, 110)
+      ctx.fillText('CONSTRUCTION', 256, 175)
+      ctx.font='16px monospace'; ctx.fillText('SECTOR 4 - ZONE B', 256, 230)
     })
 
-    // Style 6: Purple/violet abstract geometric
-    drawTile(1, 2, (c, x, y, w, h) => {
-      const cx2 = x + w / 2, cy2 = y + h / 2
-      c.strokeStyle = '#9b30ff'; c.lineWidth = 2
-      for (let r = 10; r < 58; r += 14) { c.beginPath(); c.arc(cx2, cy2, r, 0, Math.PI * 2); c.stroke() }
-      for (let a = 0; a < 6; a++) {
-        const angle = a * Math.PI / 3
-        c.beginPath(); c.moveTo(cx2, cy2); c.lineTo(cx2 + Math.cos(angle) * 56, cy2 + Math.sin(angle) * 56); c.stroke()
-      }
-      c.strokeStyle = '#cc44ff'; c.lineWidth = 1.5
-      c.strokeRect(x + 8, y + 8, w - 16, h - 16)
-    })
+    const textures = [tex0, tex1, tex2, tex3, tex4, tex5, tex6, tex7]
+    const signGeo = new THREE.PlaneGeometry(1, 1)
 
-    const atlas = new THREE.CanvasTexture(cvs)
-
-    // Build a PlaneGeometry with UVs pre-baked for the given atlas tile
-    const makeTileGeo = (col: number, row: number): THREE.PlaneGeometry => {
-      const geo  = new THREE.PlaneGeometry(1, 1)
-      const uMin = col * 0.5,         uMax = (col + 1) * 0.5
-      const vMin = 1.0 - (row + 1) / 3.0, vMax = 1.0 - row / 3.0
-      const uvAttr = geo.getAttribute('uv') as THREE.BufferAttribute
-      // PlaneGeometry vertex order: 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
-      uvAttr.setXY(0, uMin, vMax); uvAttr.setXY(1, uMax, vMax)
-      uvAttr.setXY(2, uMin, vMin); uvAttr.setXY(3, uMax, vMin)
-      uvAttr.needsUpdate = true
-      return geo
-    }
-
-    const signMat = new THREE.MeshBasicMaterial({
-      map: atlas, transparent: true,
-      side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false,
-    })
-
-    const SIGN_PER_MESH = 100
-    const signGeos   = [makeTileGeo(0, 0), makeTileGeo(1, 0), makeTileGeo(0, 1)]
-    const signMeshes = signGeos.map(geo => {
-      const m = new THREE.InstancedMesh(geo, signMat.clone(), SIGN_PER_MESH)
+    const signMeshes = textures.map(tex => {
+      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: false, side: THREE.DoubleSide })
+      const m = new THREE.InstancedMesh(signGeo, mat, SIGN_PER_MESH)
       m.frustumCulled = false; m.count = 0
       return m
     })
 
-    const signCounts = [0, 0, 0]
+    const signCounts = new Array(8).fill(0)
     const mtx2  = new THREE.Matrix4()
     const pos2  = new THREE.Vector3()
     const quat2 = new THREE.Quaternion()
     const scl2  = new THREE.Vector3()
     const yAxis = new THREE.Vector3(0, 1, 0)
 
-    for (let i = 0; i < SIGN_PER_MESH * 3; i++) {
-      const meshIdx = i % 3
+    const total = 8 * SIGN_PER_MESH
+    for (let i = 0; i < total; i++) {
+      const meshIdx = i % 8
       const ci = signCounts[meshIdx]
       if (ci >= SIGN_PER_MESH) continue
 
@@ -384,20 +384,19 @@ export class CityGenerator {
       const nz = (iz / GRID) * 4 - 2
       const hf = Math.max(0.18, 1 - Math.sqrt(nx * nx + nz * nz) / 3 * 0.6)
       const h  = Math.max(8, (22 + fbm(nx, nz, 5) * 170) * hf) + rand(4, 28)
-      const fw = rand(BLOCK * 0.42, BLOCK * 0.9)
-      const fd = rand(BLOCK * 0.42, BLOCK * 0.9)
+      const fw = rand(BLOCK * 0.55, BLOCK * 0.85)
+      const fd = rand(BLOCK * 0.55, BLOCK * 0.85)
 
-      const signW = rand(8, 20)
-      const signH = rand(4, 10)
-      const signY = rand(4, h * 0.7)
+      const signW = rand(18, 50)
+      const signH = rand(10, 28)
+      const signY = rand(h * 0.25, h * 0.55)
 
-      // Place on one of 4 building faces
       const face = Math.floor(Math.random() * 4)
       let px = wx, pz = wz, angle = 0
-      if      (face === 0) { pz = wz + fd / 2 + 0.5; angle = 0 }
-      else if (face === 1) { pz = wz - fd / 2 - 0.5; angle = Math.PI }
-      else if (face === 2) { px = wx + fw / 2 + 0.5; angle = Math.PI / 2 }
-      else                 { px = wx - fw / 2 - 0.5; angle = -Math.PI / 2 }
+      if      (face === 0) { pz = wz + fd / 2 + 0.3; angle = 0 }
+      else if (face === 1) { pz = wz - fd / 2 - 0.3; angle = Math.PI }
+      else if (face === 2) { px = wx + fw / 2 + 0.3; angle = Math.PI / 2 }
+      else                 { px = wx - fw / 2 - 0.3; angle = -Math.PI / 2 }
 
       pos2.set(px, signY, pz)
       quat2.setFromAxisAngle(yAxis, angle)
@@ -407,11 +406,74 @@ export class CityGenerator {
       signCounts[meshIdx]++
     }
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 8; i++) {
       signMeshes[i].count = signCounts[i]
       signMeshes[i].instanceMatrix.needsUpdate = true
       scene.add(signMeshes[i])
     }
+  }
+
+  addRooftopEquipment(scene: THREE.Scene) {
+    const darkMat = new THREE.MeshBasicMaterial({ color: 0x080810 })
+
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1)
+    const cylGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 8)
+    const dishGeo = new THREE.CylinderGeometry(0.05, 1, 0.6, 12)
+
+    const boxMesh = new THREE.InstancedMesh(boxGeo, darkMat.clone(), 200)
+    const cylMesh = new THREE.InstancedMesh(cylGeo, darkMat.clone(), 200)
+    const dishMesh = new THREE.InstancedMesh(dishGeo, darkMat.clone(), 200)
+    boxMesh.frustumCulled = cylMesh.frustumCulled = dishMesh.frustumCulled = false
+
+    let cBox = 0, cCyl = 0, cDish = 0
+    const mtx = new THREE.Matrix4()
+    const pos = new THREE.Vector3()
+    const scl = new THREE.Vector3()
+    const quat = new THREE.Quaternion()
+
+    for (let ix = 0; ix < GRID; ix++) {
+      for (let iz = 0; iz < GRID; iz++) {
+        if (ix % 5 === 0 || iz % 5 === 0) continue
+        const wx = ix * CELL - HALF
+        const wz = iz * CELL - HALF
+        const nx = (ix / GRID) * 4 - 2
+        const nz = (iz / GRID) * 4 - 2
+        const hf = Math.max(0.18, 1 - Math.sqrt(nx*nx + nz*nz) / 3 * 0.6)
+        const h = Math.max(8, (22 + fbm(nx, nz, 5) * 170) * hf) + rand(4, 28)
+        const fw = rand(BLOCK * 0.55, BLOCK * 0.85)
+        const fd = rand(BLOCK * 0.55, BLOCK * 0.85)
+
+        if (h < 60 || Math.random() > 0.20) continue
+
+        const count = randInt(1, 3)
+        for (let e = 0; e < count; e++) {
+          const ex = wx + rand(-fw*0.3, fw*0.3)
+          const ez = wz + rand(-fd*0.3, fd*0.3)
+          const roll = Math.random()
+
+          if (roll < 0.5 && cBox < 200) {
+            const bw = rand(2, 6), bh = rand(3, 8), bd = rand(2, 6)
+            pos.set(ex, h + bh/2, ez); scl.set(bw, bh, bd)
+            mtx.compose(pos, quat, scl)
+            boxMesh.setMatrixAt(cBox++, mtx)
+          } else if (roll < 0.8 && cCyl < 200) {
+            const r = rand(1, 3), ch = rand(4, 10)
+            pos.set(ex, h + ch/2, ez); scl.set(r*2, ch, r*2)
+            mtx.compose(pos, quat, scl)
+            cylMesh.setMatrixAt(cCyl++, mtx)
+          } else if (cDish < 200) {
+            const r = rand(2, 5)
+            pos.set(ex, h + 0.3, ez); scl.set(r*2, 1, r*2)
+            mtx.compose(pos, quat, scl)
+            dishMesh.setMatrixAt(cDish++, mtx)
+          }
+        }
+      }
+    }
+
+    boxMesh.count = cBox; boxMesh.instanceMatrix.needsUpdate = true; scene.add(boxMesh)
+    cylMesh.count = cCyl; cylMesh.instanceMatrix.needsUpdate = true; scene.add(cylMesh)
+    dishMesh.count = cDish; dishMesh.instanceMatrix.needsUpdate = true; scene.add(dishMesh)
   }
 
   addSearchlights(scene: THREE.Scene) {
