@@ -1,0 +1,418 @@
+var dt=Object.defineProperty;var ut=(s,t,n)=>t in s?dt(s,t,{enumerable:!0,configurable:!0,writable:!0,value:n}):s[t]=n;var f=(s,t,n)=>ut(s,typeof t!="symbol"?t+"":t,n);import{i as A,d as fe,I as ee,q as B,u as X,s as oe,a2 as d,Q as ne,x as me,m as Ce,j as ye,a as ie,C as Ue,t as ge,X as ae,f as nt,e as Te,y as it,Y as ft,B as ht,E as pt,a1 as he,_ as mt,g as je,G as He,p as vt,z as gt,a5 as wt,A as yt,W as St,o as bt,P as Ct,H as Tt,S as Pt,h as At}from"./three-uBnUpQ-C.js";import{b as Mt,R as Et,a as Rt,B as Ee,C as kt,V as It,N as Lt,S as xt,G as Nt,c as Re,E as Dt}from"./postprocessing-DQ1XEIde.js";import{g as N}from"./gsap-SFc2wnMY.js";(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const o of document.querySelectorAll('link[rel="modulepreload"]'))i(o);new MutationObserver(o=>{for(const a of o)if(a.type==="childList")for(const c of a.addedNodes)c.tagName==="LINK"&&c.rel==="modulepreload"&&i(c)}).observe(document,{childList:!0,subtree:!0});function n(o){const a={};return o.integrity&&(a.integrity=o.integrity),o.referrerPolicy&&(a.referrerPolicy=o.referrerPolicy),o.crossOrigin==="use-credentials"?a.credentials="include":o.crossOrigin==="anonymous"?a.credentials="omit":a.credentials="same-origin",a}function i(o){if(o.ep)return;o.ep=!0;const a=n(o);fetch(o.href,a)}})();function qe(s){return s*s*s*(s*(s*6-15)+10)}function ke(s,t,n){return s+n*(t-s)}function Se(s,t,n){const i=s&3,o=i<2?t:n,a=i<2?n:t;return(s&1?-o:o)+(s&2?-a:a)}const V=Array.from({length:512},(s,t)=>t).sort(()=>Math.random()-.5);for(let s=0;s<256;s++)V[s+256]=V[s];function Ot(s,t){const n=Math.floor(s)&255,i=Math.floor(t)&255,o=s-Math.floor(s),a=t-Math.floor(t),c=qe(o),l=qe(a),g=V[V[n]+i],C=V[V[n]+i+1],m=V[V[n+1]+i],w=V[V[n+1]+i+1];return ke(ke(Se(g,o,a),Se(m,o-1,a),c),ke(Se(C,o,a-1),Se(w,o-1,a-1),c),l)}function Ie(s,t,n=4,i=2,o=.5){let a=0,c=.5,l=1;for(let g=0;g<n;g++)a+=Ot(s*l,t*l)*c,l*=i,c*=o;return a}function S(s,t){return s+Math.random()*(t-s)}function ce(s,t){return Math.floor(S(s,t+1))}const Ut=`
+attribute float aHeight;
+attribute vec3 aNeonColor;
+
+varying vec2 vUv;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+varying float vHeight;
+varying vec3 vNeonColor;
+
+void main() {
+  vUv = uv;
+  vNeonColor = aNeonColor;
+  vHeight = aHeight;
+  vec4 worldPos = instanceMatrix * vec4(position, 1.0);
+  vWorldPos = worldPos.xyz;
+  vNormal = normalize(mat3(instanceMatrix) * normal);
+  gl_Position = projectionMatrix * viewMatrix * worldPos;
+}
+`,Gt=`
+uniform float uTime;
+uniform vec3 uFogColor;
+uniform float uFogNear;
+uniform float uFogFar;
+
+varying vec2 vUv;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+varying float vHeight;
+varying vec3 vNeonColor;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453);
+}
+
+void main() {
+  // ── WALL BASE — fake path-traced ambient (never pitch black) ──
+  // Sky bounce: cool blue-purple from above
+  vec3 skyAmbient  = vec3(0.038, 0.038, 0.072);
+  // Street glow: warm orange rising from ground, fades with height
+  float streetBlend = clamp(1.0 - vWorldPos.y / 80.0, 0.0, 1.0);
+  vec3 cityAmbient = vec3(0.055, 0.028, 0.008) * streetBlend;
+  // District neon bleed: subtle tint from nearest neon zone
+  vec3 neonAmbient = vNeonColor * 0.038;
+  // Face-angle variation: surfaces facing viewer get slightly more light
+  vec3 viewDir2 = normalize(cameraPosition - vWorldPos);
+  float facing  = max(0.0, dot(vNormal, viewDir2));
+  vec3 faceBounce = vec3(0.02, 0.022, 0.03) * facing;
+  vec3 color = skyAmbient + cityAmbient + neonAmbient + faceBounce;
+
+  // ── WINDOW GRID ────────────────────────────────────────────
+  float density = mix(10.0, 32.0, clamp(vHeight/250.0,0.0,1.0));
+  vec2 wScale = vec2(16.0, 24.0);
+  vec2 wCell  = floor(vUv * wScale);
+  vec2 wFrac  = fract(vUv * wScale);
+
+  // Window frame — thicker borders → small windows
+  float frame = step(0.22, wFrac.x) * step(0.18, wFrac.y) *
+                step(wFrac.x, 0.78) * step(wFrac.y, 0.80);
+
+  // Per-window random: static on/off (no flicker)
+  float wh = hash(wCell + floor(vWorldPos.xz * 0.008));
+  float isOn = step(0.70, wh);
+
+  vec3 wColor;
+  if (wh < 0.85) wColor = vec3(1.0, 0.75, 0.35) * 1.4;  // warm amber
+  else           wColor = vec3(0.4, 0.6, 1.0) * 1.2;     // cool blue
+
+  color += frame * isOn * wColor;
+
+  // ── VERTICAL EDGE STRIPS ────────────────────────────────────
+  float edgeGlow = (1.0 - smoothstep(0.0, 0.008, vUv.x)) +
+                   (1.0 - smoothstep(0.0, 0.008, 1.0 - vUv.x));
+  color += edgeGlow * vNeonColor * 0.6;
+
+  // ── ROOFTOP CAP ─────────────────────────────────────────────
+  float roofLine = smoothstep(0.985, 1.0, vUv.y);
+  color += roofLine * vNeonColor * 2.0;
+
+  // ── PANEL SEAM LINES ────────────────────────────────────────
+  float panelSeamV = 1.0 - smoothstep(0.0, 0.006, fract(vUv.x * 8.0));
+  color -= panelSeamV * 0.008;
+  float panelSeamH = 1.0 - smoothstep(0.0, 0.004, fract(vUv.y * 6.0));
+  color -= panelSeamH * 0.006;
+
+  // ── CLOSE-UP CONCRETE DETAIL ────────────────────────────────
+  float camDist = length(vWorldPos - cameraPosition);
+  float closeBlend = 1.0 - smoothstep(8.0, 35.0, camDist);
+  vec2 grainUV = floor(vUv * vec2(80.0, 160.0));
+  float grain = hash(grainUV + floor(vWorldPos.xz * 0.02));
+  color += (grain - 0.5) * closeBlend * 0.015;
+
+  // ── FOG ─────────────────────────────────────────────────────
+  float dist = length(vWorldPos - cameraPosition);
+  float fog = clamp((dist - uFogNear)/(uFogFar - uFogNear), 0.0, 1.0);
+  color = mix(color, uFogColor, fog * 0.78);
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`,Ft=`
+varying vec2 vUv;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+void main() {
+  vUv = uv;
+  vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+  vNormal = normalize(normalMatrix * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`,Wt=`
+uniform float uTime;
+uniform vec3 uDistrictNeon;
+uniform float uRainIntensity;
+
+varying vec2 vUv;
+varying vec3 vWorldPos;
+varying vec3 vNormal;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float hash21(vec2 p) {
+  return fract(sin(dot(p, vec2(13.9898, 78.233))) * 43758.5453);
+}
+
+// Cheap Voronoi — returns min distance to nearest point in cell grid
+float voronoi(vec2 uv) {
+  vec2 i = floor(uv);
+  vec2 f = fract(uv);
+  float minDist = 1.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 nb = vec2(float(x), float(y));
+      // Two independent hashes per cell → random 2D point inside cell
+      vec2 pt = vec2(
+        hash21(i + nb),
+        hash21(i + nb + vec2(17.3, 31.7))
+      );
+      minDist = min(minDist, length(f - (nb + pt)));
+    }
+  }
+  return minDist;
+}
+
+// Ripple ring centered at origin
+float ripple(vec2 uv, float t) {
+  float r = length(uv);
+  return sin(r * 20.0 - t * 8.0) * exp(-r * 4.0) * 0.5 + 0.5;
+}
+
+void main() {
+  vec3 asphalt = vec3(0.045, 0.045, 0.06);
+
+  // ── ROAD GRID LINES ────────────────────────────────────────
+  vec2 roadUv = vWorldPos.xz * 0.08;
+  vec2 gf = fract(roadUv);
+  float lineX = 1.0 - smoothstep(0.0, 0.015, min(gf.x, 1.0 - gf.x));
+  float lineZ = 1.0 - smoothstep(0.0, 0.015, min(gf.y, 1.0 - gf.y));
+  float gridLine = max(lineX, lineZ);
+
+  // ── VORONOI PUDDLE MASK ────────────────────────────────────
+  vec2 puddleUV = vWorldPos.xz * 0.4;
+  float puddleMask = 1.0 - smoothstep(0.30, 0.42, voronoi(puddleUV));
+
+  // ── RAIN RIPPLES IN PUDDLES (4 rings at staggered phases) ──
+  float rippleSum = 0.0;
+  for (int i = 0; i < 4; i++) {
+    vec2 cellCenter = floor(puddleUV + vec2(float(i) * 0.37, float(i) * 0.61));
+    vec2 offset = vec2(
+      hash(cellCenter + vec2(float(i) * 3.7, 1.1)),
+      hash(cellCenter + vec2(2.3, float(i) * 1.9))
+    ) * 4.0 - 2.0;
+    float phase = hash(vec2(float(i), 7.3)) * 1.2;
+    float age = mod(uTime * 0.75 + phase, 1.2) / 1.2;
+    rippleSum += ripple((vWorldPos.xz - offset) * 1.2, uTime + phase * 10.0)
+                 * (1.0 - age) * 0.25 * uRainIntensity;
+  }
+
+  // ── PUDDLE REFLECTION (approximate bloom via neon colors) ──
+  float neonPulse = 0.55 + 0.45 * sin(uTime * 0.25 + vWorldPos.x * 0.08 + vWorldPos.z * 0.06);
+  vec3 skyReflect = vec3(0.05, 0.08, 0.16);          // dark sky base tint
+  vec3 puddleColor = skyReflect + uDistrictNeon * neonPulse * 0.7;
+  puddleColor += uDistrictNeon * rippleSum * 0.8;     // ripples brighten neon
+
+  // ── ASPHALT SURFACE VARIATION (subtle grain) ──────────────
+  float surfGrain = hash(floor(vWorldPos.xz * 4.0));
+  asphalt += (surfGrain - 0.5) * 0.01;
+
+  // ── COMPOSE ───────────────────────────────────────────────
+  vec3 color = asphalt;
+  color += gridLine * 0.08;                           // faint grid reflection
+  color = mix(color, puddleColor, puddleMask * 0.6 * uRainIntensity);
+
+  // Ambient neon bleed on wet surface
+  float neonBleed = sin(vWorldPos.x * 0.12 + uTime * 0.1) * 0.5 + 0.5;
+  neonBleed      *= sin(vWorldPos.z * 0.09 + uTime * 0.07) * 0.5 + 0.5;
+  color += uDistrictNeon * neonBleed * puddleMask * 0.10 * uRainIntensity;
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`,Ht=`
+attribute float aSpeed;
+attribute float aOffset;
+uniform float uTime;
+varying float vAlpha;
+
+void main() {
+  float t = mod(uTime * aSpeed + aOffset, 1.0);
+  vec3 pos = position;
+  pos.y -= t * 120.0;
+  pos.y = mod(pos.y + 60.0, 120.0) - 60.0;
+  vAlpha = 0.3 + 0.4 * aSpeed;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  gl_PointSize = 1.5;
+}
+`,zt=`
+varying float vAlpha;
+void main() {
+  gl_FragColor = vec4(0.55, 0.75, 1.0, vAlpha * 0.35);
+}
+`,_t=`
+varying vec3 vLocalPos;
+void main() {
+  vLocalPos = position;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`,Bt=`
+uniform float uTime;
+uniform vec3 uZenithColor;
+uniform vec3 uHorizonColor;
+uniform vec3 uDistrictNeon;
+
+varying vec3 vLocalPos;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+// Layered sin cloud noise — cheap, no texture needed
+float cloudNoise(vec2 uv) {
+  float n = 0.0;
+  float amp = 0.5, freq = 1.0;
+  for (int i = 0; i < 4; i++) {
+    float fi = float(i);
+    n += amp * (sin(uv.x * freq + uTime * 0.008 * (fi + 1.0)) * 0.5 + 0.5)
+             * (sin(uv.y * freq * 0.71 + uTime * 0.006 * (fi + 1.0)) * 0.5 + 0.5);
+    amp  *= 0.5;
+    freq *= 2.1;
+  }
+  return n;
+}
+
+void main() {
+  vec3 dir = normalize(vLocalPos);
+
+  // Hard horizon clamp — below ground just shows horizon color
+  float elevation = dir.y;
+
+  // Zenith→horizon gradient
+  float h = clamp(elevation, 0.0, 1.0);
+  float hPow = pow(h, 0.4);
+  vec3 sky = mix(uHorizonColor, uZenithColor, hPow);
+
+  // City glow blooms up from below the horizon
+  float cityGlow = 1.0 - smoothstep(0.0, 0.35, elevation);
+  sky += uDistrictNeon * 0.18 * cityGlow;
+
+  // Cloud layer — only when looking somewhat upward
+  if (elevation > 0.02) {
+    vec2 cloudUV = dir.xz / (elevation + 0.08) * 0.28 + vec2(uTime * 0.002, uTime * 0.001);
+    float cloud = cloudNoise(cloudUV);
+    cloud = smoothstep(0.42, 0.68, cloud);
+    // Dark cloud bottoms, neon-lit on underside near horizon
+    vec3 cloudBase = vec3(0.015, 0.015, 0.022);
+    vec3 cloudUnderlit = cloudBase + uDistrictNeon * 0.12 * cityGlow;
+    sky = mix(sky, cloudUnderlit, cloud * (1.0 - hPow) * 0.65);
+  }
+
+  // Stars — only near zenith, tiny bright points
+  if (elevation > 0.15) {
+    vec2 starUV = dir.xz / (abs(elevation) + 0.01);
+    float starHash = hash(floor(starUV * 130.0));
+    float star = step(0.996, starHash) * smoothstep(0.15, 0.55, elevation);
+    sky += star * vec3(0.5, 0.6, 1.0) * 0.9;
+  }
+
+  gl_FragColor = vec4(sky, 1.0);
+}
+`,Vt=`
+attribute vec3 aColor;
+attribute float aFlickerSeed;
+attribute float aPulseMode;
+
+varying vec2 vUv;
+varying vec3 vColor;
+varying float vFlickerSeed;
+varying float vPulseMode;
+
+void main() {
+  vUv = uv;
+  vColor = aColor;
+  vFlickerSeed = aFlickerSeed;
+  vPulseMode = aPulseMode;
+  // instanceMatrix contains the per-sign world transform
+  vec4 worldPos = instanceMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * worldPos;
+}
+`,jt=`
+uniform float uTime;
+
+varying vec2 vUv;
+varying vec3 vColor;
+varying float vFlickerSeed;
+varying float vPulseMode;
+
+float hashF(float p) {
+  return fract(sin(p * 127.1) * 43758.5453);
+}
+
+void main() {
+  // Elongated horizontal tube shape
+  vec2 centered = vUv - 0.5;
+  float dist = length(centered * vec2(1.0, 4.0));
+  float tube = 1.0 - smoothstep(0.0, 0.28, dist);
+  float halo = 1.0 - smoothstep(0.05, 0.55, length(centered));
+
+  // Stochastic flicker — brief dimming events
+  float flickerNoise = fract(sin(uTime * 47.3 + vFlickerSeed * 100.0) * 43758.5);
+  float flicker = 1.0 - step(0.97, flickerNoise) * 0.75;
+
+  // Mode: 0=static  1=pulse  2=blink  3=glitch
+  float brightness;
+  if (vPulseMode < 0.5) {
+    brightness = flicker;
+  } else if (vPulseMode < 1.5) {
+    brightness = (0.6 + 0.4 * sin(uTime * 1.2 + vFlickerSeed * 20.0)) * flicker;
+  } else if (vPulseMode < 2.5) {
+    brightness = step(0.5, fract(uTime * 0.5 + vFlickerSeed));
+  } else {
+    // Glitch — rapid segment dropout
+    float glitchT = floor(uTime * 8.0 + vFlickerSeed * 37.0);
+    brightness = step(0.2, hashF(glitchT));
+    brightness = mix(brightness, 1.0, step(0.0, sin(uTime * 0.5 + vFlickerSeed * 5.0)));
+  }
+
+  // Power buzz — high-frequency shimmer along tube
+  float buzz = sin(vUv.x * 80.0 + uTime * 30.0) * 0.06 * tube;
+
+  vec3 col = vColor * (tube * brightness + halo * 0.25);
+  col += vec3(1.0) * tube * brightness * 0.5;   // white-hot core
+  col += vColor * buzz * brightness;
+
+  float alpha = (tube * brightness + halo * 0.25) * 0.9;
+  if (alpha < 0.01) discard;
+  gl_FragColor = vec4(col, alpha);
+}
+`,L=32,pe=16,qt=6,Q=pe+qt,te=L/2*Q,Le={color:new A(197400),near:100,far:500},ve=[new A(62975),new A(62975),new A(16711850),new A(16711850),new A(16739098),new A(8073215),new A(8073215),new A(65416),new A(65416),new A(16770626)];function Xt(){return new ae({vertexShader:Ut,fragmentShader:Gt,uniforms:{uTime:{value:0},uFogColor:{value:Le.color},uFogNear:{value:Le.near},uFogFar:{value:Le.far}}})}function Yt(s,t){const n=s/L,i=t/L;return n<.35&&i<.35?0:n<.65&&i<.35?1:n>=.65&&i<.35?2:n<.35&&i<.65?3:n>=.65&&i<.65?4:n<.35&&i>=.65?5:n<.65&&i>=.65?6:n>=.65&&i>=.65?7:i>.45&&i<.55?8:9}class $t{constructor(){f(this,"sectionLow");f(this,"sectionMid");f(this,"sectionTop");f(this,"meshD");f(this,"meshLedge");f(this,"mats",[]);f(this,"buildings",[])}generate(t){const n=L*L,i=Xt();this.mats.push(i);const o=()=>{const e=new fe(1,1,1),r=new Float32Array(n),p=new Float32Array(n*3);e.setAttribute("aHeight",new ee(r,1)),e.setAttribute("aNeonColor",new ee(p,3));const R=new B(e,i.clone(),n);return R.frustumCulled=!1,{geo:e,heights:r,colors:p,mesh:R}},a=o(),c=o(),l=o();this.sectionLow=a.mesh,this.sectionMid=c.mesh,this.sectionTop=l.mesh;for(const e of[a.mesh,c.mesh,l.mesh])this.mats.push(e.material);const g=new fe(1,1,1),C=new Float32Array(n),m=new Float32Array(n*3);g.setAttribute("aHeight",new ee(C,1)),g.setAttribute("aNeonColor",new ee(m,3)),this.meshD=new B(g,i.clone(),n),this.meshD.frustumCulled=!1,this.mats.push(this.meshD.material);const w=new fe(1,1,1),v=new X({color:789524});this.meshLedge=new B(w,v,L*L*6),this.meshLedge.frustumCulled=!1,this.meshLedge.count=0;const u=new oe,h=new d,y=new d,T=new ne;let E=0,M=0,P=0,I=0,b=0;for(let e=0;e<L;e++)for(let r=0;r<L;r++){const p=e*Q-te,R=r*Q-te;if(e%5===0||r%5===0||e%2===0&&r%2===0&&Math.random()<.25)continue;const F=e/L*4-2,x=r/L*4-2,H=Ie(F,x,5),Z=Math.sqrt(F*F+x*x)/3,le=Math.max(.18,1-Z*.6),k=Math.max(8,(22+H*170)*le)+S(4,28),_=S(pe*.42,pe*.9),j=S(pe*.42,pe*.9),we=Yt(e,r),U=ve[we],J=k*.62;if(a.heights[E]=k,a.colors[E*3]=U.r,a.colors[E*3+1]=U.g,a.colors[E*3+2]=U.b,h.set(p,J/2,R),y.set(_,J,j),u.compose(h,T,y),this.sectionLow.setMatrixAt(E,u),E++,this.buildings.push({wx:p,wz:R,fw:_,fd:j,h:k}),k>40){const G=k*.23,O=_*.68,q=j*.68;c.heights[M]=k,c.colors[M*3]=U.r,c.colors[M*3+1]=U.g,c.colors[M*3+2]=U.b,h.set(p,k*.62+G/2,R),y.set(O,G,q),u.compose(h,T,y),this.sectionMid.setMatrixAt(M,u),M++}if(k>100){const G=k*.15,O=_*.38,q=j*.38;l.heights[P]=k,l.colors[P*3]=U.r,l.colors[P*3+1]=U.g,l.colors[P*3+2]=U.b,h.set(p,k*.85+G/2,R),y.set(O,G,q),u.compose(h,T,y),this.sectionTop.setMatrixAt(P,u),P++}if(Math.random()>=.95){const G=S(1.5,4),O=S(1.5,4),q=k*1.8;C[I]=q,m[I*3]=U.r,m[I*3+1]=U.g,m[I*3+2]=U.b,h.set(p+S(-2,2),q/2,R+S(-2,2)),y.set(G,q,O),u.compose(h,T,y),this.meshD.setMatrixAt(I,u),I++}if(Math.random()<.5){const G=Math.floor(S(2,4));for(let O=1;O<=G;O++){const q=O/(G+1)*J;h.set(p,q,R),y.set(_+1.2,.7,j+1.2),u.compose(h,T,y),this.meshLedge.setMatrixAt(b,u),b++}k>40&&(h.set(p,k*.62,R),y.set(_*.72,.7,j*.72),u.compose(h,T,y),this.meshLedge.setMatrixAt(b,u),b++),k>100&&(h.set(p,k*.85,R),y.set(_*.42,.7,j*.42),u.compose(h,T,y),this.meshLedge.setMatrixAt(b,u),b++)}}this.sectionLow.count=E,this.sectionMid.count=M,this.sectionTop.count=P,this.meshD.count=I;for(const e of[this.sectionLow,this.sectionMid,this.sectionTop,this.meshD]){e.instanceMatrix.needsUpdate=!0;const r=e.geometry;r.getAttribute("aHeight").needsUpdate=!0,r.getAttribute("aNeonColor").needsUpdate=!0,t.add(e)}this.meshLedge.count=b,this.meshLedge.instanceMatrix.needsUpdate=!0,t.add(this.meshLedge)}addBillboardScreens(t){const i=e=>{const r=document.createElement("canvas");r.width=512,r.height=256;const p=r.getContext("2d");return e(p),new Ue(r)},o=i(e=>{e.fillStyle="#000",e.fillRect(0,0,512,256),e.strokeStyle="#00f5ff",e.lineWidth=2;for(let r=0;r<6;r++)e.beginPath(),e.moveTo(20,30+r*36),e.lineTo(492,30+r*36),e.stroke();e.fillStyle="#00f5ff";for(let r=0;r<8;r++)for(let p=0;p<5;p++)e.beginPath(),e.arc(40+r*60,30+p*36,5,0,Math.PI*2),e.fill();e.font="bold 32px monospace",e.fillStyle="#00f5ff88",e.textAlign="center",e.fillText("SYSTEM ONLINE",256,230)}),a=i(e=>{e.fillStyle="#000",e.fillRect(0,0,512,256),e.fillStyle="#ff00aa18";for(let r=-4;r<20;r+=2)e.beginPath(),e.moveTo(r*30,0),e.lineTo(r*30+30,0),e.lineTo(r*30+30+256,256),e.lineTo(r*30+256,256),e.closePath(),e.fill();e.strokeStyle="#ff00aa",e.lineWidth=3,e.strokeRect(6,6,500,244),e.fillStyle="#ff00aa",e.font="bold 56px monospace",e.textAlign="center",e.fillText("DANGER",256,110),e.font="bold 42px serif",e.fillText("危険区域",256,180),e.font="18px monospace",e.fillStyle="#ff00aa88",e.fillText("AUTHORIZED PERSONNEL ONLY",256,230)}),c=i(e=>{e.fillStyle="#0a0500",e.fillRect(0,0,512,256),e.fillStyle="#ff8800",e.font="bold 28px monospace",e.textAlign="left",["GPU-X  ▲ 4821.3","NET-7  ▼ 219.08","SYS-4  ▲ 1104.7","AI-12  ▲ 8820.0","HRD-3  ▼  553.2"].forEach((p,R)=>e.fillText(p,20,48+R*44)),e.strokeStyle="#ff8800",e.lineWidth=2,e.strokeRect(6,6,500,244),e.fillStyle="#ff880044",e.fillRect(6,6,500,30),e.fillStyle="#ff8800",e.font="bold 22px monospace",e.textAlign="center",e.fillText("◈ NEON DISTRICT EXCHANGE ◈",256,26)}),l=i(e=>{e.fillStyle="#000510",e.fillRect(0,0,512,256),e.strokeStyle="#4488ff",e.lineWidth=2;for(let r=20;r<110;r+=22){e.beginPath();for(let p=0;p<6;p++){const R=p*Math.PI/3-Math.PI/6,F=256+Math.cos(R)*r,x=128+Math.sin(R)*r;p===0?e.moveTo(F,x):e.lineTo(F,x)}e.closePath(),e.stroke()}e.fillStyle="#4488ff",e.font="bold 22px monospace",e.textAlign="center",e.fillText("NEXUS CORP",256,220),e.font="14px monospace",e.fillStyle="#4488ff88",e.fillText("EST. 2047  |  SECTOR 7",256,248)}),g=i(e=>{e.fillStyle="#000a00",e.fillRect(0,0,512,256),e.fillStyle="#00ff44",e.font="12px monospace";for(let r=0;r<32;r++)for(let p=0;p<16;p++)Math.random()>.45&&e.fillText(Math.random()>.5?"1":"0",8+r*16,14+p*15);e.fillStyle="#00ff4422",e.fillRect(0,0,512,256),e.strokeStyle="#00ff44",e.lineWidth=2,e.strokeRect(4,4,504,248),e.fillStyle="#00ff44",e.font="bold 34px monospace",e.textAlign="center",e.shadowBlur=16,e.shadowColor="#00ff44",e.fillText("MATRIX CORE",256,148),e.shadowBlur=0}),C=i(e=>{e.fillStyle="#05000a",e.fillRect(0,0,512,256),e.strokeStyle="#aa00ff",e.lineWidth=3,e.strokeRect(6,6,500,244),e.strokeStyle="#aa00ff66",e.lineWidth=1,e.strokeRect(16,16,480,224),e.fillStyle="#aa00ff",e.font="bold 40px monospace",e.textAlign="center",e.shadowBlur=20,e.shadowColor="#aa00ff",e.fillText("RESTRICTED",256,100),e.fillText("ACCESS",256,155),e.shadowBlur=0,e.font="16px monospace",e.fillStyle="#aa00ff88",e.fillText("CLEARANCE LEVEL Ω REQUIRED",256,220)}),m=i(e=>{e.fillStyle="#0a0000",e.fillRect(0,0,512,256),e.fillStyle="#ff112244",e.fillRect(0,0,512,256),e.strokeStyle="#ff1122",e.lineWidth=4,e.strokeRect(6,6,500,244),e.fillStyle="#ff1122",e.font="bold 80px monospace",e.textAlign="center",e.fillText("⚠",256,140),e.font="bold 28px monospace",e.fillText("ALERT",256,200),e.font="14px monospace",e.fillStyle="#ff112288",e.fillText("EMERGENCY BROADCAST ACTIVE",256,240)}),w=i(e=>{e.fillStyle="#080400",e.fillRect(0,0,512,256),e.fillStyle="#ff8800";for(let r=-4;r<20;r+=2)e.beginPath(),e.moveTo(r*28,0),e.lineTo(r*28+28,0),e.lineTo(r*28+28+256,256),e.lineTo(r*28+256,256),e.closePath(),e.fill();e.fillStyle="#080400";for(let r=-4;r<20;r+=2)e.beginPath(),e.moveTo((r+1)*28,0),e.lineTo((r+1)*28+28,0),e.lineTo((r+1)*28+28+256,256),e.lineTo((r+1)*28+256,256),e.closePath(),e.fill();e.fillStyle="#ff8800",e.font="bold 52px monospace",e.textAlign="center",e.fillText("UNDER",256,110),e.fillText("CONSTRUCTION",256,175),e.font="16px monospace",e.fillText("SECTOR 4 - ZONE B",256,230)}),v=[o,a,c,l,g,C,m,w],u=new me(1,1),h=v.map(e=>{const r=new X({map:e,transparent:!1,side:Ce}),p=new B(u,r,20);return p.frustumCulled=!1,p.count=0,p}),y=new Array(8).fill(0),T=new oe,E=new d,M=new ne,P=new d,I=new d(0,1,0),b=8*20;for(let e=0;e<b;e++){const r=e%8,p=y[r];if(p>=20)continue;const R=this.buildings[Math.floor(Math.random()*this.buildings.length)],{wx:F,wz:x,fw:H,fd:Z,h:le}=R;if(le<14)continue;const k=Math.floor(Math.random()*4),_=k<2?H:Z,j=S(_*.5,_*.9),we=Math.min(S(3,8),le*.4),U=S(we*.5+1,Math.min(le*.55,20));let J=F,G=x,O=0;k===0?(G=x+Z/2+.15,O=0):k===1?(G=x-Z/2-.15,O=Math.PI):k===2?(J=F+H/2+.15,O=Math.PI/2):(J=F-H/2-.15,O=-Math.PI/2),E.set(J,U,G),M.setFromAxisAngle(I,O),P.set(j,we,1),T.compose(E,M,P),h[r].setMatrixAt(p,T),y[r]++}for(let e=0;e<8;e++)h[e].count=y[e],h[e].instanceMatrix.needsUpdate=!0,t.add(h[e])}addRooftopEquipment(t){const n=new X({color:526352}),i=new fe(1,1,1),o=new ye(.5,.5,1,8),a=new ye(.05,1,.6,12),c=new B(i,n.clone(),200),l=new B(o,n.clone(),200),g=new B(a,n.clone(),200);c.frustumCulled=l.frustumCulled=g.frustumCulled=!1;let C=0,m=0,w=0;const v=new oe,u=new d,h=new d,y=new ne;for(const T of this.buildings){const{wx:E,wz:M,fw:P,fd:I,h:b}=T;if(b<60||Math.random()>.2)continue;const e=ce(1,3);for(let r=0;r<e;r++){const p=E+S(-P*.3,P*.3),R=M+S(-I*.3,I*.3),F=Math.random();if(F<.5&&C<200){const x=S(2,6),H=S(3,8),Z=S(2,6);u.set(p,b+H/2,R),h.set(x,H,Z),v.compose(u,y,h),c.setMatrixAt(C++,v)}else if(F<.8&&m<200){const x=S(1,3),H=S(4,10);u.set(p,b+H/2,R),h.set(x*2,H,x*2),v.compose(u,y,h),l.setMatrixAt(m++,v)}else if(w<200){const x=S(2,5);u.set(p,b+.3,R),h.set(x*2,1,x*2),v.compose(u,y,h),g.setMatrixAt(w++,v)}}}c.count=C,c.instanceMatrix.needsUpdate=!0,t.add(c),l.count=m,l.instanceMatrix.needsUpdate=!0,t.add(l),g.count=w,g.instanceMatrix.needsUpdate=!0,t.add(g)}addSearchlights(t){const n=new ye(.3,2.5,1,6,1,!0),i=[{color:16777215,opacity:.08,count:34},{color:4521983,opacity:.07,count:26},{color:16729258,opacity:.07,count:20}],o=new oe,a=new d,c=new d,l=new ne;for(const g of i){const C=new X({color:g.color,transparent:!0,opacity:g.opacity,side:Ce,blending:ie,depthWrite:!1}),m=new B(n,C,g.count);m.frustumCulled=!1;for(let w=0;w<g.count;w++){const v=ce(0,L-1),u=ce(0,L-1),h=v*Q-te,y=u*Q-te,T=v/L*4-2,E=u/L*4-2,M=Math.max(.18,1-Math.sqrt(T*T+E*E)/3*.6),P=Math.max(8,(22+Ie(T,E,5)*170)*M)+S(4,28);a.set(h+S(-2,2),P+150,y+S(-2,2)),c.set(1,300,1),o.compose(a,l,c),m.setMatrixAt(w,o)}m.instanceMatrix.needsUpdate=!0,t.add(m)}}addAntennas(t){const n=new ye(.1,.1,1,4),i=new X({color:16716083}),o=new B(n,i,400);o.frustumCulled=!1;const a=new oe,c=new d,l=new d,g=new ne;let C=0;for(let m=0;m<400;m++){const w=ce(0,L-1),v=ce(0,L-1),u=w*Q-te,h=v*Q-te,y=w/L*4-2,T=v/L*4-2,E=Math.max(.18,1-Math.sqrt(y*y+T*T)/3*.6),M=Math.max(8,(22+Ie(y,T,5)*170)*E)+20,P=S(8,30);c.set(u+S(-3,3),M+P/2,h+S(-3,3)),l.set(1,P,1),a.compose(c,g,l),o.setMatrixAt(C++,a)}o.count=C,o.instanceMatrix.needsUpdate=!0,t.add(o)}addNeonSigns(t,n){n.forEach(({text:i,pos:o,color:a})=>{const c=document.createElement("canvas");c.width=256,c.height=64;const l=c.getContext("2d");l.clearRect(0,0,256,64),l.fillStyle=a+"22",l.fillRect(0,0,256,64),l.strokeStyle=a,l.lineWidth=2,l.strokeRect(2,2,252,60),l.fillStyle=a,l.font="bold 22px monospace",l.textAlign="center",l.fillText(i,128,40);const g=new Ue(c),C=new me(18,4.5),m=new X({map:g,transparent:!0,side:Ce,depthWrite:!1}),w=new ge(C,m);w.position.copy(o),t.add(w)})}update(t){for(const n of this.mats)n.uniforms.uTime.value=t}}class Kt{constructor(){f(this,"mesh");f(this,"mat")}create(t){const n=new me(1200,1200,1,1);return this.mat=new ae({vertexShader:Ft,fragmentShader:Wt,uniforms:{uTime:{value:0},uDistrictNeon:{value:new A(62975)},uRainIntensity:{value:1}}}),this.mesh=new ge(n,this.mat),this.mesh.rotation.x=-Math.PI/2,this.mesh.position.y=0,t.add(this.mesh),this.mesh}update(t){this.mat.uniforms.uTime.value=t}setDistrictNeon(t){this.mat.uniforms.uDistrictNeon.value.copy(t)}setRainIntensity(t){this.mat.uniforms.uRainIntensity.value=t}}class Zt{constructor(){f(this,"points");f(this,"count",8e3)}create(t){const n=new Float32Array(this.count*3),i=new Float32Array(this.count),o=new Float32Array(this.count);for(let l=0;l<this.count;l++)n[l*3]=S(-300,300),n[l*3+1]=S(-60,60),n[l*3+2]=S(-300,300),i[l]=S(.3,1),o[l]=Math.random();const a=new nt;a.setAttribute("position",new Te(n,3)),a.setAttribute("aSpeed",new Te(i,1)),a.setAttribute("aOffset",new Te(o,1));const c=new ae({vertexShader:Ht,fragmentShader:zt,uniforms:{uTime:{value:0}},transparent:!0,blending:ie,depthWrite:!1});this.points=new it(a,c),t.add(this.points)}update(t,n){const i=this.points.material;i.uniforms.uTime.value=t,n&&(this.points.position.x=n.x,this.points.position.z=n.z)}}class Jt{constructor(){f(this,"mesh");f(this,"mat")}create(t){const n=new ft(2e3,32,16);this.mat=new ae({vertexShader:_t,fragmentShader:Bt,uniforms:{uTime:{value:0},uZenithColor:{value:new A(132104)},uHorizonColor:{value:new A(1706e3)},uDistrictNeon:{value:new A(62975)}},side:ht,depthWrite:!1}),this.mesh=new ge(n,this.mat),this.mesh.renderOrder=-1,t.add(this.mesh)}update(t,n,i){this.mesh.position.copy(n),this.mat.uniforms.uTime.value=t,i&&this.mat.uniforms.uDistrictNeon.value.copy(i)}setDistrictColors(t,n){this.mat.uniforms.uHorizonColor.value.copy(t),this.mat.uniforms.uDistrictNeon.value.copy(n)}}function Qt(s){let t=s;return()=>{t|=0,t=t+1831565813|0;let n=Math.imul(t^t>>>15,1|t);return n=n+Math.imul(n^n>>>7,61|n)^n,((n^n>>>14)>>>0)/4294967296}}const Xe=[new A(16720384),new A(61183),new A(22015),new A(16711884),new A(65382),new A(16737792),new A(11141375),new A(16770626)],Ge=32,st=16,eo=6,Fe=st+eo,Ye=Ge/2*Fe;class to{constructor(){f(this,"mesh");f(this,"mat")}create(t){const i=new me(5,1.4),o=new Float32Array(150*3),a=new Float32Array(150),c=new Float32Array(150);i.setAttribute("aColor",new ee(o,3)),i.setAttribute("aFlickerSeed",new ee(a,1)),i.setAttribute("aPulseMode",new ee(c,1)),this.mat=new ae({vertexShader:Vt,fragmentShader:jt,uniforms:{uTime:{value:0}},transparent:!0,depthWrite:!1,side:Ce,blending:ie}),this.mesh=new B(i,this.mat,150),this.mesh.frustumCulled=!1;const l=Qt(42),g=new oe,C=new d,m=new ne,w=new d(1,1,1);let v=0;for(let u=0;u<Ge&&v<150;u++)for(let h=0;h<Ge&&v<150;h++){if(u%5===0||h%5===0||l()>.1)continue;const y=u*Fe-Ye,T=h*Fe-Ye,E=6+l()*12,M=Math.floor(l()*4),P=st*.5+.3;let I=y,b=T,e=0;M===0?(b=T+P,e=0):M===1?(b=T-P,e=Math.PI):M===2?(I=y+P,e=Math.PI*.5):(I=y-P,e=-Math.PI*.5),C.set(I,E,b),m.setFromEuler(new pt(0,e,0)),g.compose(C,m,w),this.mesh.setMatrixAt(v,g);const r=Xe[Math.floor(l()*Xe.length)];o[v*3]=r.r,o[v*3+1]=r.g,o[v*3+2]=r.b,a[v]=l();const p=l();c[v]=p<.6?0:p<.85?1:p<.95?2:3,v++}this.mesh.count=v,this.mesh.instanceMatrix.needsUpdate=!0,i.getAttribute("aColor").needsUpdate=!0,i.getAttribute("aFlickerSeed").needsUpdate=!0,i.getAttribute("aPulseMode").needsUpdate=!0,t.add(this.mesh)}update(t){this.mat.uniforms.uTime.value=t}}const oo=`
+  uniform float uIntensity;
+
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    const int TAPS = 8;
+    const float THRESHOLD = 0.78;
+    const float TAP_SPACING = 0.005;
+
+    vec3 streak = vec3(0.0);
+
+    for (int i = 1; i <= TAPS; i++) {
+      float ofs    = float(i) * TAP_SPACING;
+      float weight = 1.0 / float(i);
+
+      // Sample left
+      vec4 sL = texture2D(inputBuffer, vec2(uv.x - ofs, uv.y));
+      float lL = dot(sL.rgb, vec3(0.299, 0.587, 0.114));
+      streak += sL.rgb * max(0.0, lL - THRESHOLD) * weight;
+
+      // Sample right
+      vec4 sR = texture2D(inputBuffer, vec2(uv.x + ofs, uv.y));
+      float lR = dot(sR.rgb, vec3(0.299, 0.587, 0.114));
+      streak += sR.rgb * max(0.0, lR - THRESHOLD) * weight;
+    }
+
+    outputColor = vec4(inputColor.rgb + streak * uIntensity, inputColor.a);
+  }
+`;class no extends Dt{constructor(t=.45){super("LensStreakEffect",oo,{uniforms:new Map([["uIntensity",new mt(t)]])})}}class io{constructor(){f(this,"composer");f(this,"glitch");f(this,"glitchTimeout",0)}setup(t,n,i){this.composer=new Mt(t);const o=new Et(n,i),a=new Rt({blendFunction:Ee.ADD,luminanceThreshold:.55,luminanceSmoothing:.3,intensity:3.2,radius:.5}),c=new no(.45),l=new kt({offset:new he(.0018,.0012),radialModulation:!0,modulationOffset:.5}),g=new It({eskil:!1,offset:.35,darkness:.75}),C=new Lt({blendFunction:Ee.OVERLAY,premultiply:!0});C.blendMode.opacity.value=.04;const m=new xt({blendFunction:Ee.OVERLAY,density:1.4});return m.blendMode.opacity.value=.07,this.glitch=new Nt({delay:new he(99999,99999),duration:new he(.15,.35),strength:new he(.15,.4),columns:.04,ratio:.85}),this.composer.addPass(o),this.composer.addPass(new Re(i,a,c)),this.composer.addPass(new Re(i,l,m,g,C)),this.composer.addPass(new Re(i,this.glitch)),this.composer}triggerGlitch(){this.glitch.delay.set(0,.05),clearTimeout(this.glitchTimeout),this.glitchTimeout=window.setTimeout(()=>{this.glitch.delay.set(99999,99999)},600)}resize(t,n){this.composer.setSize(t,n)}render(){this.composer.render()}}const W=[{pos:new d(0,180,220),look:new d(0,0,0),label:"HERO",t:0},{pos:new d(-40,12,110),look:new d(-20,20,60),label:"ABOUT",t:0},{pos:new d(-80,200,65),look:new d(-80,200,20),label:"PS3 GPU",t:0},{pos:new d(-75,200,25),look:new d(-75,200,-25),label:"CPUonGPU",t:0},{pos:new d(-13,200,-55),look:new d(0,200,-90),label:"GPU Stream",t:0},{pos:new d(19,200,-80),look:new d(40,200,-110),label:"Selkies",t:0},{pos:new d(90,200,-65),look:new d(100,200,-100),label:"Oris AI",t:0},{pos:new d(101,200,8),look:new d(90,200,-20),label:"VajraGrid",t:0},{pos:new d(84,200,76),look:new d(70,200,50),label:"VidyaMitra",t:0},{pos:new d(34,200,106),look:new d(20,200,80),label:"Netflip",t:0},{pos:new d(-5,200,96),look:new d(-20,200,70),label:"Arena",t:0},{pos:new d(-20,200,67),look:new d(-10,200,40),label:"Hackathon",t:0},{pos:new d(-60,8,30),look:new d(-40,8,0),label:"SKILLS",t:0},{pos:new d(0,120,160),look:new d(0,0,0),label:"CONTACT",t:0}],so=320;class ao{constructor(t){f(this,"camera");f(this,"posSpline");f(this,"lookSpline");f(this,"t",0);f(this,"currentSection",0);f(this,"mouseX",0);f(this,"mouseY",0);f(this,"_pos",new d);f(this,"_look",new d);f(this,"_ahead",new d);f(this,"onSectionChange");f(this,"_lastFiredSection",0);this.camera=t,this.buildSpline(),this.init()}buildSpline(){const t=W.map(o=>o.pos.clone()),n=W.map(o=>o.look.clone());this.posSpline=new je(t,!1,"catmullrom",.5),this.lookSpline=new je(n,!1,"catmullrom",.5);const i=W.length;W.forEach((o,a)=>{o.t=a/(i-1)}),this.t=0,this.posSpline.getPoint(0,this._pos),this.lookSpline.getPoint(0,this._look),this.camera.position.copy(this._pos),this.camera.lookAt(this._look)}init(){window.addEventListener("mousemove",i=>{this.mouseX=(i.clientX/window.innerWidth-.5)*2,this.mouseY=(i.clientY/window.innerHeight-.5)*2});let t=!1;window.addEventListener("wheel",i=>{if(t)return;t=!0;const o=i.deltaY>0?1:-1;this.goTo(this.currentSection+o),setTimeout(()=>{t=!1},so)},{passive:!0});let n=0;window.addEventListener("touchstart",i=>{n=i.touches[0].clientY}),window.addEventListener("touchend",i=>{const o=n-i.changedTouches[0].clientY;Math.abs(o)>40&&this.goTo(this.currentSection+(o>0?1:-1))}),window.addEventListener("keydown",i=>{(i.key==="ArrowDown"||i.key==="ArrowRight")&&this.goTo(this.currentSection+1),(i.key==="ArrowUp"||i.key==="ArrowLeft")&&this.goTo(this.currentSection-1)})}goTo(t){var c;if(t=Math.max(0,Math.min(W.length-1,t)),t===this.currentSection)return;const n=this.currentSection;this.currentSection=t,this._lastFiredSection=t;const i=W[t].t;(c=this.onSectionChange)==null||c.call(this,t),this._updateUI(t);const a=.6+Math.abs(i-this.t)*5;N.killTweensOf(this),N.to(this,{t:i,duration:a,ease:"power2.inOut",onUpdate:()=>this._fireCrossings(n,t)})}_fireCrossings(t,n){const i=n>t?1:-1;W.forEach((o,a)=>{var l;(i>0?this.t>=o.t&&a>this._lastFiredSection&&a<=n:this.t<=o.t&&a<this._lastFiredSection&&a>=n)&&(this._lastFiredSection=a,(l=this.onSectionChange)==null||l.call(this,a),this._updateUI(a))})}update(t){this.posSpline.getPoint(this.t,this._pos),this.camera.position.copy(this._pos);const n=Math.min(1,this.t+.015);this.posSpline.getPoint(n,this._ahead),this.lookSpline.getPoint(this.t,this._look);const i=this._look.x*.8+this._ahead.x*.2+this.mouseX*5,o=this._look.y*.8+this._ahead.y*.2-this.mouseY*3,a=this._look.z*.8+this._ahead.z*.2;this.camera.lookAt(i,o,a)}_updateUI(t){document.querySelectorAll(".nav-dot").forEach((i,o)=>i.classList.toggle("active",o===t));const n=document.getElementById("progress-bar");n&&(n.style.height=t/(W.length-1)*100+"%")}getCurrentSection(){return this.currentSection}}const Ae=[{id:"ps3-gpu",title:"PS3 Cell GPU Emulator",subtitle:"Systems / Emulation",desc:"Full emulation of the Cell Broadband Engine's SPU pipeline in WebGL. 6 SPU cores, PPE scheduler, DMA bus — running real PS3 shaders in the browser at 200 GIPS.",tags:["C++","WebGL","GLSL","Cell BE","Emulation"],url:"https://github.com/Aerosane/ps3-cell-gpu-emulator",neonColor:"#00f5ff",district:"GPU DISTRICT",icon:"⬡"},{id:"cpuongpu",title:"CPUonGPU",subtitle:"Architecture Research",desc:"Runs a full x86 CPU simulation entirely on GPU compute shaders. Register file, ALU, cache hierarchy — all in GLSL. JIT-compiled x86 → SPIR-V at runtime.",tags:["GLSL","Compute Shaders","x86","JIT","SPIR-V"],url:"https://github.com/Aerosane/cpuongpu",neonColor:"#00f5ff",district:"GPU DISTRICT",icon:"⬢"},{id:"gpu-streaming",title:"GPU Streaming Pipeline",subtitle:"NvFBC + NVENC",desc:"Sub-frame-latency game streaming via NvFBC capture → NVENC H265/AV1 encode → WebRTC TURN relay. <1 frame E2E latency. Deployed on GitHub Codespace GPU.",tags:["NVENC","NvFBC","WebRTC","Rust","H265"],url:"https://github.com/Aerosane/gpu-streaming-nvfbc",neonColor:"#00f5ff",district:"GPU DISTRICT",icon:"▶"},{id:"selkies-rust",title:"Selkies-Rust",subtitle:"Python→Rust Port",desc:"Complete rewrite of the Selkies WebRTC game streaming stack from Python into Rust. 6 crates: pipeline, signaling, input, encoding, metrics, CLI.",tags:["Rust","WebRTC","GStreamer","Tokio","GSAP"],url:"https://github.com/Aerosane/selkies-rust",neonColor:"#ff6b1a",district:"SYSTEMS CORRIDOR",icon:"⚙"},{id:"oris-ai",title:"Oris — AI SRE",subtitle:"🏆 Runner-up · TechSynapse 2026",desc:"Autonomous Site Reliability Engineer: ingests production logs, PII-masks with Presidio, infers root cause via Gemini 2.0, opens GitHub PRs with fixes. Zero human touch.",tags:["Python","Gemini 2.0","Presidio","LangChain","FastAPI"],url:"https://github.com/Aerosane/oris",neonColor:"#ff00aa",district:"AI DISTRICT",icon:"◈"},{id:"vajragrid",title:"VajraGrid",subtitle:"🇮🇳 India Innovates 2026 · Bharat Mandapam",desc:"AI-hardened power grid security: detects SCADA cyberattacks in 16s, 4-layer ML defense stack, adversarial training. Exhibited nationally at Bharat Mandapam.",tags:["Python","PyTorch","SCADA","Adversarial ML","GridSec"],url:"https://github.com/Aerosane/vajragridr",neonColor:"#ff00aa",district:"AI DISTRICT",icon:"⚡"},{id:"vidyamitra",title:"VidyaMitra",subtitle:"IISER JEE Prep",desc:"AI tutor for JEE aspirants: adaptive quiz engine, LaTeX equation rendering, spaced repetition. Covers Physics, Chemistry, Math with difficulty auto-calibration.",tags:["TypeScript","React","LaTeX","OpenAI","Supabase"],url:"https://github.com/Aerosane/vidyamitra",neonColor:"#00ff88",district:"EDTECH ZONE",icon:"⬟"},{id:"netflip",title:"Netflip VOD",subtitle:"Full-Stack Streaming",desc:"Netflix-clone with HLS adaptive streaming, Azure Blob CDN, Fastly edge cache, WebSocket live chat, OAuth2, recommendation engine. 1080p adaptive bitrate.",tags:["Next.js","HLS","Azure","Fastly","PostgreSQL"],url:"https://github.com/Aerosane/netflip-vod",neonColor:"#7b2fff",district:"WEB DISTRICT",icon:"▨"},{id:"coding-arena",title:"Coding Arena",subtitle:"Competitive Judging Platform",desc:"Online judge with isolated Docker execution, multi-language support, real-time leaderboard, plagiarism detection via AST similarity. 200ms median judge latency.",tags:["Go","Docker","Redis","React","WebSocket"],url:"https://github.com/Aerosane/coding_arena",neonColor:"#7b2fff",district:"WEB DISTRICT",icon:"{ }"},{id:"hackathon",title:"Hackathon Wins",subtitle:"Hall of Fame",desc:"🏆 Runner-up at TechSynapse 2026 (Oris AI SRE). 🇮🇳 National exhibition at India Innovates 2026, Bharat Mandapam, New Delhi (VajraGrid). 1st year, two nationals.",tags:["Oris AI","VajraGrid","TechSynapse","India Innovates"],url:"https://github.com/Aerosane",neonColor:"#ffe642",district:"HALL OF FAME",icon:"🏆"}],ro={Languages:["C++","Rust","Python","TypeScript","Go","GLSL/HLSL"],Systems:["WebRTC","WebGL/WebGPU","NVENC/NvFBC","Docker","Linux"],"AI/ML":["PyTorch","Gemini API","LangChain","Presidio","HuggingFace"],Web:["React","Next.js","Vite","Node.js","PostgreSQL","Redis"],Tools:["Git","GitHub Actions","Azure","GStreamer","Tokio"]};class lo{constructor(){f(this,"group",new He);f(this,"hoverTargets",[]);f(this,"visible",!1);f(this,"visibleValue",0)}enter(){this.group.visible=!0,this.visible=!0,N.killTweensOf(this),N.to(this,{visibleValue:1,duration:.35,ease:"expo.out",onUpdate:()=>this.setVisible(this.visibleValue)})}exit(){this.visible=!1,N.killTweensOf(this),N.to(this,{visibleValue:0,duration:.18,ease:"power2.in",onUpdate:()=>this.setVisible(this.visibleValue),onComplete:()=>{this.group.visible=!1}})}setVisible(t){}dispose(){this.group.traverse(t=>{t.geometry&&t.geometry.dispose()})}}const co=`
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`,uo=`
+uniform sampler2D uMap;
+uniform float uReveal;   // 0=hidden, 1=fully shown
+uniform float uOpacity;
+uniform vec3 uNeon;
+varying vec2 vUv;
+void main() {
+  vec4 tex = texture2D(uMap, vUv);
+  // Wipe left→right: pixels with x < uReveal are shown
+  float hidden = smoothstep(uReveal - 0.04, uReveal + 0.04, vUv.x);
+  // Bright neon scan-line at the leading edge
+  float atEdge = 1.0 - smoothstep(0.0, 0.04, abs(vUv.x - uReveal));
+  vec3 col = tex.rgb + uNeon * atEdge * 3.5;
+  gl_FragColor = vec4(col, tex.a * (1.0 - hidden) * uOpacity);
+}
+`;function We(s){const i=document.createElement("canvas");i.width=900,i.height=440;const o=i.getContext("2d"),a=s.neonColor;o.fillStyle="#010208",o.fillRect(0,0,900,440),o.fillStyle="rgba(10,12,30,0.95)",o.fillRect(3,3,894,434);for(let u=0;u<440;u+=4)o.fillStyle="rgba(0,0,0,0.18)",o.fillRect(0,u,900,2);const c=o.createLinearGradient(0,0,14,0);c.addColorStop(0,a),c.addColorStop(1,"transparent"),o.fillStyle=c,o.shadowColor=a,o.shadowBlur=28,o.fillRect(0,0,7,440),o.shadowBlur=0,o.font="bold 11px monospace",o.fillStyle=a+"aa",o.textAlign="left",o.fillText("◈ "+s.district.toUpperCase(),24,28);const l=s.title.length>18?48:s.title.length>13?58:70;o.font=`bold ${l}px monospace`,o.shadowColor=a,o.shadowBlur=50,o.fillStyle="#ffffff",o.fillText(s.title,24,62+(70-l)),o.shadowBlur=26,o.fillStyle=a+"bb",o.fillText(s.title,24,62+(70-l)),o.shadowBlur=0,o.font="18px monospace",o.fillStyle="rgba(255,255,255,0.65)",o.fillText(s.subtitle,24,138),o.font="14px monospace",o.fillStyle="rgba(200,220,255,0.45)";const g=852,C=s.desc.split(" "),m=[];let w="";for(const u of C){const h=w?w+" "+u:u;if(o.measureText(h).width>g){if(m.length===1){m.push(w+"…"),w="";break}m.push(w),w=u}else w=h}w&&m.length<2&&m.push(w),m.forEach((u,h)=>o.fillText(u,24,164+h*20)),o.strokeStyle=a+"30",o.lineWidth=1,o.beginPath(),o.moveTo(24,212),o.lineTo(876,212),o.stroke(),o.font="bold 13px monospace";let v=24;for(const u of s.tags.slice(0,5)){const h=o.measureText(u).width+20;if(v+h>876)break;o.fillStyle=a+"18",o.fillRect(v,224,h,26),o.strokeStyle=a+"66",o.lineWidth=1,o.strokeRect(v,224,h,26),o.fillStyle=a+"ee",o.fillText(u,v+10,241),v+=h+8}return o.font="12px monospace",o.fillStyle="rgba(255,255,255,0.22)",o.fillText(s.url.replace("https://",""),24,278),o.font="bold 13px monospace",o.shadowColor=a,o.shadowBlur=14,o.fillStyle=a+"99",o.fillText("▶  CLICK TO VIEW PROJECT",24,422),o.shadowBlur=0,i}function fo(s){return new Ue(We(s))}function $(s,t,n,i,o){const a=new ge(new fe(s,t,n),o);return a.position.copy(i),a.frustumCulled=!1,a}class ho extends lo{constructor(n,i,o){super();f(this,"projIdx");f(this,"panelPos");f(this,"camPos");f(this,"fadeMats",[]);f(this,"particleMat");f(this,"panelShaderMat");this.projIdx=n,this.panelPos=i,this.camPos=o}create(n){n.add(this.group);const i=Ae[this.projIdx],o=new A(i.neonColor),a=new He;a.position.copy(this.panelPos);const c=this.camPos.x-this.panelPos.x,l=this.camPos.z-this.panelPos.z;a.rotation.y=Math.atan2(c,l),this.group.add(a);const g=(b,e)=>(b.opacity=0,this.fadeMats.push([b,e]),b),C=[o.r,o.g,o.b];this.panelShaderMat=new ae({uniforms:{uMap:{value:fo(i)},uReveal:{value:0},uOpacity:{value:1},uNeon:{value:new d(...C)}},vertexShader:co,fragmentShader:uo,transparent:!0,depthWrite:!0,side:vt});const m=new ge(new me(40,19.5),this.panelShaderMat);m.frustumCulled=!1,m.userData.isLabel=!0,m.userData.onClick=()=>window.open(i.url,"_blank"),a.add(m);const w=g(new X({color:o,transparent:!0,blending:ie,depthWrite:!1}),.85);a.add($(41,.5,.4,new d(0,9.75,.1),w)),a.add($(41,.5,.4,new d(0,-9.75,.1),w)),a.add($(.5,20.5,.4,new d(-20.25,0,.1),w)),a.add($(.5,20.5,.4,new d(20.25,0,.1),w));const v=190,u=g(new X({color:2763326,transparent:!0}),1),h=new d(-13,-9.75-v/2,0),y=new d(13,-9.75-v/2,0);a.add($(.9,v,.9,h,u)),a.add($(.9,v,.9,y,u)),a.add($(27,.7,.9,new d(0,-9.75-v+.4,0),u));const T=g(new X({color:o,transparent:!0,blending:ie,depthWrite:!1}),.5);a.add($(41,.3,.1,new d(0,9.75,.2),T));const E=60,M=new Float32Array(E*3);for(let b=0;b<E;b++)M[b*3]=this.panelPos.x+(Math.random()-.5)*60,M[b*3+1]=this.panelPos.y+(Math.random()-.5)*35,M[b*3+2]=this.panelPos.z+(Math.random()-.5)*60;const P=new nt;P.setAttribute("position",new Te(M,3)),this.particleMat=new gt({size:.4,color:o,transparent:!0,opacity:0,blending:ie,sizeAttenuation:!0});const I=new it(P,this.particleMat);I.frustumCulled=!1,this.group.add(I)}update(n){}setVisible(n){this.panelShaderMat&&(this.panelShaderMat.uniforms.uReveal.value=n);for(const[i,o]of this.fadeMats)i.opacity=n*o;this.particleMat&&(this.particleMat.opacity=n*.45)}onHover(){}}class po{constructor(){f(this,"wrap");f(this,"oldCanvas");f(this,"newCanvas");f(this,"border");f(this,"onReadyToReveal");this.wrap=document.createElement("div"),Object.assign(this.wrap.style,{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%, -50%)",width:"clamp(320px, 72vw, 900px)",aspectRatio:"900 / 440",pointerEvents:"none",zIndex:"50",opacity:"0",borderRadius:"3px",overflow:"hidden",willChange:"opacity"}),this.oldCanvas=this._makeCanvas(),this.newCanvas=this._makeCanvas(),this.border=document.createElement("div"),Object.assign(this.border.style,{position:"absolute",inset:"0",border:"2px solid transparent",borderRadius:"3px",pointerEvents:"none",opacity:"0",zIndex:"2",boxSizing:"border-box"}),this.wrap.appendChild(this.oldCanvas),this.wrap.appendChild(this.newCanvas),this.wrap.appendChild(this.border),document.body.appendChild(this.wrap)}_makeCanvas(){const t=document.createElement("canvas");return Object.assign(t.style,{position:"absolute",top:"0",left:"0",width:"100%",height:"100%",opacity:"0"}),t}_blit(t,n){t.width=n.width,t.height=n.height,t.getContext("2d").drawImage(n,0,0)}transition(t,n){const i=l=>l>=2&&l<=11;if(!i(n))return;const o=i(t)?Ae[t-2]:null,a=Ae[n-2],c=a.neonColor;o?(this._blit(this.oldCanvas,We(o)),N.set(this.oldCanvas,{opacity:1})):N.set(this.oldCanvas,{opacity:0}),this._blit(this.newCanvas,We(a)),N.set(this.newCanvas,{opacity:0}),this.border.style.borderColor=c,this.border.style.boxShadow=`0 0 18px ${c}88, inset 0 0 12px ${c}22`,N.killTweensOf([this.wrap,this.oldCanvas,this.newCanvas,this.border]),N.set(this.wrap,{opacity:1}),N.to(this.oldCanvas,{opacity:0,duration:.45,ease:"power2.in"}),N.to(this.newCanvas,{opacity:1,duration:.45,ease:"power2.out"}),N.fromTo(this.border,{opacity:0},{opacity:1,duration:.15,ease:"power2.out",onComplete:()=>N.to(this.border,{opacity:0,duration:.35,ease:"power2.in"})}),N.delayedCall(.36,()=>{var l;return(l=this.onReadyToReveal)==null?void 0:l.call(this)}),N.to(this.wrap,{opacity:0,duration:.35,delay:.5,ease:"power2.in"})}}const mo=[[2,0],[3,1],[4,2],[5,3],[6,4],[7,5],[8,6],[9,7],[10,8],[11,9]];class vo{constructor(t,n){f(this,"envs",new Map);f(this,"activeEnv",null);f(this,"activeIdx",-1);f(this,"overlay",new po);for(const[i,o]of mo){const a=W[i],c=new ho(o,a.look.clone(),a.pos.clone());c.create(t),c.group.visible=!1,this.envs.set(i,c)}}onSection(t){if(t===this.activeIdx)return;const n=this.activeIdx;this.activeIdx=t,this.activeEnv&&(this.activeEnv.exit(),this.activeEnv=null);const i=this.envs.get(t);i&&(this.activeEnv=i,this.overlay.onReadyToReveal=()=>i.enter(),this.overlay.transition(n,t))}update(t){this.activeEnv&&this.activeEnv.update(t)}}const go=document.getElementById("scene-canvas"),re=new wt({canvas:go,antialias:!0,alpha:!1,powerPreference:"high-performance"});re.setPixelRatio(Math.min(devicePixelRatio,2));re.setSize(innerWidth,innerHeight);re.toneMapping=yt;re.toneMappingExposure=.95;const D=new St;D.background=new A(131602);D.fog=new bt(197400,.003);const K=new Ct(60,innerWidth/innerHeight,.5,1200),Me=new io;Me.setup(re,D,K);const ze=new Jt;ze.create(D);const z=new $t;z.generate(D);z.addBillboardScreens(D);z.addRooftopEquipment(D);z.addSearchlights(D);const wo=Ae.map((s,t)=>{const n=W[t+2];return{text:s.district,pos:new d(n.pos.x+12,80,n.pos.z-18),color:s.neonColor}});z.addNeonSigns(D,wo);const at=new to;at.create(D);const _e=new Kt;_e.create(D);const rt=new Zt;rt.create(D);const yo=new Tt(128,0,.4);D.add(yo);const Be=new He;D.add(Be);var et,tt;(tt=(et=z.cityGroup)==null?void 0:et.children)==null||tt.forEach(s=>Be.add(s));const lt=new vo(D,Be),Pe=new A(62975);function So(s){const t=Math.min(s,ve.length-1);Pe.copy(ve[t]),_e.setDistrictNeon(Pe),ze.update(0,K.position,Pe)}const bo=[["NEON DISTRICT","A cyberpunk portfolio"],["ABOUT","Who is behind this"],["PS3 CELL GPU","PS3 SPU emulator in WebGL"],["CPUonGPU","x86 CPU running on GPU"],["GPU STREAMING","Sub-frame game streaming"],["SELKIES RUST","WebRTC stack rebuilt in Rust"],["ORIS AI","Autonomous SRE agent"],["VAJRAGRID","AI power grid security"],["VIDYAMITRA","Adaptive JEE AI tutor"],["NETFLIP","HLS streaming platform"],["ARENA OJ","Online judge platform"],["HACKATHON","Competition highlights"],["TECH STACK","Tools and languages"],["CONTACT","Get in touch"]],se=document.createElement("div");se.id="section-banner";Object.assign(se.style,{position:"fixed",bottom:"24px",left:"50%",transform:"translateX(-50%)",textAlign:"center",pointerEvents:"none",zIndex:"50",opacity:"0",transition:"opacity 0.4s",background:"rgba(0,0,8,0.65)",padding:"10px 28px",borderTop:"1px solid currentColor"});document.body.appendChild(se);function Co(s){const[t,n]=bo[s]??["",""],i=ve[s]?"#"+ve[s].getHexString():"#00f5ff";se.style.color=i,se.innerHTML=`
+    <div style="font-family:monospace;font-size:8px;letter-spacing:4px;color:${i};margin-bottom:4px;text-transform:uppercase;opacity:0.7">
+      DISTRICT_${String(s).padStart(2,"0")}
+    </div>
+    <div style="font-family:monospace;font-size:1.1rem;font-weight:900;color:#fff;
+                text-shadow:0 0 20px ${i},0 0 40px ${i}88;letter-spacing:0.08em;line-height:1.1">
+      ${t}
+    </div>
+    <div style="font-family:monospace;font-size:0.75rem;color:${i};
+                letter-spacing:0.15em;margin-top:4px;opacity:0.85">
+      ${n}
+    </div>
+  `,se.style.opacity="1"}const Ve=new ao(K);Ve.onSectionChange=s=>{Po(s),Ao(s),So(s),Me.triggerGlitch(),lt.onSection(s),Co(s)};const To=document.getElementById("nav-dots");W.forEach((s,t)=>{const n=document.createElement("div");n.className="nav-dot"+(t===0?" active":""),n.title=s.label,n.addEventListener("click",()=>Ve.goTo(t)),To.appendChild(n)});function Po(s){document.querySelectorAll(".sect").forEach((t,n)=>{t.classList.toggle("active",n===s)}),document.querySelectorAll(".nav-dot").forEach((t,n)=>{t.classList.toggle("active",n===s)})}function Ao(s){const t=document.getElementById("hud-section");t&&(t.textContent=`DISTRICT_${String(s).padStart(2,"0")} / ${W[s].label}`)}const $e=document.getElementById("skills-grid");$e&&Object.entries(ro).forEach(([s,t])=>{const n=document.createElement("div");n.className="skill-cat",n.innerHTML=`<div class="skill-cat-name">// ${s}</div>`+t.map(i=>`<div class="skill-item">${i}</div>`).join(""),$e.appendChild(n)});const Y=document.getElementById("contact-input"),be=document.getElementById("contact-input-display");var ot;(ot=document.getElementById("sect-13"))==null||ot.addEventListener("click",()=>Y==null?void 0:Y.focus());Y==null||Y.addEventListener("input",()=>{be&&(be.textContent=(Y.value||"")+"_"),Y.value.trim().toLowerCase()==="sudo"&&(Mo(),Y.value="",be&&(be.textContent="_"))});function Mo(){const s=document.querySelector("#sect-13 .terminal-body");if(!s)return;const t=document.createElement("p");t.className="output neon-green",t.textContent="> Permission granted. Downloading your future...",s.appendChild(t),setTimeout(()=>{const n=document.createElement("p");n.className="output",n.innerHTML='<span style="color:#ffe642">root@neon-district:~# ██████████ 100%  COMPLETE</span>',s.appendChild(n)},1500)}const Ke=["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"];let de=0;window.addEventListener("keydown",s=>{s.key===Ke[de]?de++:de=0,de===Ke.length&&(de=0,Eo())});let xe=!1;function Eo(){xe=!xe,[z.sectionLow,z.sectionMid,z.sectionTop,z.meshD].forEach(s=>{const t=s.material;t.wireframe=xe})}const Ne=document.getElementById("boot-log"),Ze=document.getElementById("boot-bar"),ue=document.getElementById("loading-screen"),De=["Initializing WebGPU context","Generating city geometry","Compiling 47 shader programs","Spawning rain particles","Calibrating post-processing chain","System ready"];async function Ro(){for(let s=0;s<De.length;s++){await new Promise(n=>setTimeout(n,260+Math.random()*200));const t=document.createElement("p");t.innerHTML=`<span style="color:rgba(0,245,255,.5)">[BOOT]</span> ${De[s]}... <span class="ok">[OK]</span>`,Ne==null||Ne.appendChild(t),Ze&&(Ze.style.width=(s+1)/De.length*100+"%")}await new Promise(s=>setTimeout(s,600)),ue==null||ue.classList.add("fade-out"),setTimeout(()=>{ue&&(ue.style.display="none")},850)}Ro();const Je=new Pt,Oe=new he;window.addEventListener("click",s=>{if(s.target.closest("#env-detail-panel"))return;Oe.x=s.clientX/innerWidth*2-1,Oe.y=-(s.clientY/innerHeight)*2+1,Je.setFromCamera(Oe,K);const t=Je.intersectObjects(D.children,!0);for(const n of t){const i=n.object;if(i.userData.isLabel&&i.userData.onClick){s.stopPropagation(),i.userData.onClick();return}}});window.addEventListener("resize",()=>{K.aspect=innerWidth/innerHeight,K.updateProjectionMatrix(),re.setSize(innerWidth,innerHeight),Me.resize(innerWidth,innerHeight)});const Qe=new At;function ct(){requestAnimationFrame(ct);const s=Qe.getElapsedTime(),t=Qe.getDelta();z.update(s),_e.update(s),rt.update(s,K.position),at.update(s),ze.update(s,K.position,Pe),Ve.update(t),lt.update(s),Me.render()}ct();

@@ -27,7 +27,7 @@ void main() {
 }
 `
 
-function drawPanel(proj: Project): THREE.CanvasTexture {
+export function drawPanelCanvas(proj: Project): HTMLCanvasElement {
   const W = 900, H = 440
   const c = document.createElement('canvas')
   c.width = W; c.height = H
@@ -125,7 +125,11 @@ function drawPanel(proj: Project): THREE.CanvasTexture {
   ctx.fillText('▶  CLICK TO VIEW PROJECT', 24, H - 18)
   ctx.shadowBlur = 0
 
-  return new THREE.CanvasTexture(c)
+  return c
+}
+
+function drawPanel(proj: Project): THREE.CanvasTexture {
+  return new THREE.CanvasTexture(drawPanelCanvas(proj))
 }
 
 function box(
