@@ -381,24 +381,24 @@ export class CityGenerator {
       const ci = signCounts[meshIdx]
       if (ci >= SIGN_PER_MESH) continue
 
-      // Pick a real building from stored footprints
+      // Pick a real building from stored footprints — only ones tall enough
       const b = this.buildings[Math.floor(Math.random() * this.buildings.length)]
       const { wx, wz, fw, fd, h } = b
-
-      const signW = rand(8, 22)
-      const signH = rand(4, 11)
-      // Keep signs at street-visible height (camera at Y=8-12 during city traversal)
-      const maxY = Math.min(h * 0.45, 28)
-      const minY = signH * 0.5 + 1
-      if (maxY < minY) continue  // skip very short buildings
-      const signY = rand(minY, maxY)
+      if (h < 14) continue
 
       const face = Math.floor(Math.random() * 4)
+      // Face width: ±Z faces are fw wide, ±X faces are fd wide
+      const faceWidth = (face < 2) ? fw : fd
+      const signW = rand(faceWidth * 0.5, faceWidth * 0.9)
+      const signH = Math.min(rand(3, 8), h * 0.4)
+      // Sign center Y: bottom ~10% to 60% of building, never higher than 20 units
+      const signY = rand(signH * 0.5 + 1, Math.min(h * 0.55, 20))
+
       let px = wx, pz = wz, angle = 0
-      if      (face === 0) { pz = wz + fd / 2 + 0.3; angle = 0 }
-      else if (face === 1) { pz = wz - fd / 2 - 0.3; angle = Math.PI }
-      else if (face === 2) { px = wx + fw / 2 + 0.3; angle = Math.PI / 2 }
-      else                 { px = wx - fw / 2 - 0.3; angle = -Math.PI / 2 }
+      if      (face === 0) { pz = wz + fd / 2 + 0.15; angle = 0 }
+      else if (face === 1) { pz = wz - fd / 2 - 0.15; angle = Math.PI }
+      else if (face === 2) { px = wx + fw / 2 + 0.15; angle = Math.PI / 2 }
+      else                 { px = wx - fw / 2 - 0.15; angle = -Math.PI / 2 }
 
       pos2.set(px, signY, pz)
       quat2.setFromAxisAngle(yAxis, angle)
