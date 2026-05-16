@@ -16,7 +16,7 @@ void main() {
   vState = aState;
   vPhase = aPhase;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = 14.0 + 6.0 * step(0.5, aState);
+  gl_PointSize = 22.0 + 10.0 * step(0.5, aState);
 }
 `
 const NODE_FRAG = `
@@ -35,7 +35,7 @@ void main() {
   vec3 col = vState < 0.5 ? vec3(0.0, 0.9, 1.0)
            : vState < 1.5 ? vec3(1.0, 0.1, 0.15)
                            : vec3(1.0, 0.55, 0.0);
-  float alpha = (ring * 0.35 + core * 1.2) * pulse * uVisible;
+  float alpha = (ring * 0.5 + core * 1.8) * pulse * uVisible;
   gl_FragColor = vec4(col, alpha);
 }
 `
@@ -120,9 +120,9 @@ void main() {
 
 // Substation world positions (ring + a few inner nodes)
 const SUBSTATION_POSITIONS = [
-  [ 0,  20], [ 12, 12], [ 16, -4], [ 8, -16],
-  [-8, -16], [-16, -4], [-12, 12],            // outer ring (7)
-  [ 0,   4], [ 6,  -6], [-6,  -6],            // inner triangle (3)
+  [ 0,  28], [ 16, 18], [ 22, -6], [ 11, -22],
+  [-11, -22], [-22, -6], [-16, 18],            // outer ring (7)
+  [ 0,   6], [ 8,  -8], [-8,  -8],            // inner triangle (3)
 ]
 
 export class PowerGridEnv extends Environment {
@@ -149,7 +149,7 @@ export class PowerGridEnv extends Environment {
       uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
     })
-    const grid = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), this.gridMat)
+    const grid = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), this.gridMat)
     grid.rotation.x = -Math.PI / 2
     grid.position.set(CENTER.x, CENTER.y - 6, CENTER.z)
     this.group.add(grid)
@@ -218,7 +218,7 @@ export class PowerGridEnv extends Environment {
       },
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     })
-    const attackPlane = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), this.attackMat)
+    const attackPlane = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), this.attackMat)
     attackPlane.rotation.x = -Math.PI / 2
     attackPlane.position.set(CENTER.x, CENTER.y - 5.5, CENTER.z)
     this.group.add(attackPlane)
@@ -239,15 +239,6 @@ export class PowerGridEnv extends Environment {
     }
 
     // Labels
-    const lbl = makeLabelMesh('VAJRAGRID', 'Power Grid Cyberdefence — 4-Layer IDS', '#ff6b00')
-    lbl.position.set(CENTER.x, CENTER.y + 22, CENTER.z)
-    lbl.scale.setScalar(4.5)
-    this.group.add(lbl)
-
-    const rec = makeLabelMesh('RECOVERY 16s', 'India Innovates 2026', '#ffcc00')
-    rec.position.set(CENTER.x + 18, CENTER.y + 10, CENTER.z)
-    rec.scale.setScalar(3)
-    this.group.add(rec)
   }
 
   update(t: number) {

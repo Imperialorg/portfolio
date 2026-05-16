@@ -68,7 +68,7 @@ void main() {
   if (d > 0.5) discard;
   float circle = 1.0 - smoothstep(0.2, 0.5, d);
   vec3 col = mix(vec3(0.0, 0.9, 1.0), vec3(0.8, 0.3, 1.0), vPhase);
-  gl_FragColor = vec4(col * circle * fade * 2.0, circle * fade * uVisible);
+  gl_FragColor = vec4(col * circle * fade * 4.0, circle * fade * uVisible);
 }
 `
 
@@ -108,7 +108,7 @@ export class ServerRoomEnv extends Environment {
     this.mats.push(floorMat)
 
     // 8 server racks (2 rows × 4)
-    const rackGeo = new THREE.BoxGeometry(3, 20, 5)
+    const rackGeo = new THREE.BoxGeometry(4, 24, 6)
     const rackMat = new THREE.ShaderMaterial({
       vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
       fragmentShader: RACK_FRAG,
@@ -143,17 +143,13 @@ export class ServerRoomEnv extends Environment {
     this.buildParticles()
 
     // Label
-    const lbl = makeLabelMesh('PS3 CELL BE', 'GPU Emulator — 6 SPU × 256KB', '#00f5ff')
-    lbl.position.set(CENTER.x + 18, CENTER.y + 2, CENTER.z)
-    lbl.scale.setScalar(4)
-    this.group.add(lbl)
   }
 
   private buildCellHologram() {
     const CENTER_H = new THREE.Vector3(CENTER.x + 14, CENTER.y + 2, CENTER.z)
     // PPE core
     const ppeMat = new THREE.MeshBasicMaterial({ color: 0x00f5ff, wireframe: true, transparent: true })
-    const ppe = new THREE.Mesh(new THREE.OctahedronGeometry(1.5, 1), ppeMat)
+    const ppe = new THREE.Mesh(new THREE.OctahedronGeometry(2.5, 1), ppeMat)
     ppe.position.copy(CENTER_H)
     this.group.add(ppe)
 
@@ -163,9 +159,9 @@ export class ServerRoomEnv extends Environment {
       const angle = (i / 6) * Math.PI * 2
       const spe = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.4, 6), speMat.clone())
       spe.position.set(
-        CENTER_H.x + Math.cos(angle) * 4,
+        CENTER_H.x + Math.cos(angle) * 6,
         CENTER_H.y,
-        CENTER_H.z + Math.sin(angle) * 4
+        CENTER_H.z + Math.sin(angle) * 6
       )
       this.group.add(spe)
     }
@@ -182,9 +178,9 @@ export class ServerRoomEnv extends Environment {
       const spoke = i % 6
       const angle = (spoke / 6) * Math.PI * 2
       const t = Math.random()
-      positions[i*3]   = CENTER_H.x + Math.cos(angle) * 4 * t
+      positions[i*3]   = CENTER_H.x + Math.cos(angle) * 6 * t
       positions[i*3+1] = CENTER_H.y + (Math.random() - 0.5) * 0.5
-      positions[i*3+2] = CENTER_H.z + Math.sin(angle) * 4 * t
+      positions[i*3+2] = CENTER_H.z + Math.sin(angle) * 6 * t
       phases[i] = Math.random()
     }
 

@@ -17,7 +17,7 @@ void main() {
   vActivation = aActivation;
   vIsAnomaly = float(int(aNodeId) == uAnomalyNode ? 1 : 0);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = 7.0 + 5.0 * vActivation + 4.0 * vIsAnomaly;
+  gl_PointSize = 14.0 + 8.0 * vActivation + 8.0 * vIsAnomaly;
 }
 `
 const NODE_FRAG = `
@@ -59,7 +59,7 @@ void main() {
   float t   = fract(uTime * 0.7 + vEdgePhase);
   float pulse = exp(-abs(t - 0.5) * 9.0);
   vec3 col  = mix(vec3(0.25, 0.0, 0.6), vec3(1.0, 0.5, 1.0), pulse);
-  float alpha = (0.10 + 0.90 * pulse) * uVisible;
+  float alpha = (0.18 + 0.82 * pulse) * uVisible;
   gl_FragColor = vec4(col, alpha);
 }
 `
@@ -114,7 +114,7 @@ export class NeuralNetEnv extends Environment {
       uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
     })
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), floorMat)
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(CENTER.x, CENTER.y - 18, CENTER.z)
     this.group.add(floor)
@@ -130,8 +130,8 @@ export class NeuralNetEnv extends Environment {
       for (let n = 0; n < NPL; n++) {
         const idx = l * NPL + n
         nodePositions.push(new THREE.Vector3(
-          CENTER.x + (l - 2) * 5.5,
-          CENTER.y + (n - NPL / 2 + 0.5) * 3.8,
+          CENTER.x + (l - 2) * 8.0,
+          CENTER.y + (n - NPL / 2 + 0.5) * 5.5,
           CENTER.z
         ))
         nodeIds[idx]     = idx
@@ -192,11 +192,6 @@ export class NeuralNetEnv extends Environment {
     logPanel.position.set(CENTER.x + 16, CENTER.y - 2, CENTER.z + 4)
     logPanel.rotation.y = -0.5
     this.group.add(logPanel)
-
-    const lbl = makeLabelMesh('ORIS', 'AI Site Reliability Engineer', '#b000ff')
-    lbl.position.set(CENTER.x, CENTER.y + 20, CENTER.z)
-    lbl.scale.setScalar(4)
-    this.group.add(lbl)
   }
 
   private drawLog() {

@@ -16,8 +16,8 @@ void main() {
   float t = fract(vUv.x * 3.0 - uTime * 1.2);
   float pulse = exp(-abs(t - 0.5) * 12.0);
   vec3 fiberBase = vec3(0.05, 0.05, 0.12);
-  vec3 pulseColor = vec3(1.0, 0.4, 0.9);
-  vec3 col = fiberBase + pulseColor * pulse * 4.0;
+  vec3 pulseColor = vec3(1.0, 0.2, 0.8);
+  vec3 col = fiberBase + pulseColor * pulse * 8.0;
   // Glow around the tube body
   float radial = 1.0 - smoothstep(0.3, 0.5, abs(vUv.y - 0.5));
   col *= radial * 2.0;
@@ -130,7 +130,7 @@ export class WebRTCEnv extends Environment {
 
     // Concentric RF signal rings from tower 0
     for (let i = 0; i < 4; i++) {
-      const ringGeo = new THREE.RingGeometry(4 + i * 5, 4.3 + i * 5, 48)
+      const ringGeo = new THREE.RingGeometry(6 + i * 7, 6.4 + i * 7, 48)
       const ringMat = new THREE.ShaderMaterial({
         vertexShader: RING_VERT,
         fragmentShader: RING_FRAG,
@@ -173,17 +173,13 @@ export class WebRTCEnv extends Environment {
       uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
       transparent: true,
     })
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(20, 10), encMat)
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(28, 14), encMat)
     screen.position.set(CENTER.x + 18, CENTER.y + 8, CENTER.z + 5)
     screen.rotation.y = -0.6
     this.group.add(screen)
     this.mats.push(encMat)
 
     // Label
-    const lbl = makeLabelMesh('GPU STREAMING', 'NvFBC → NVENC → WebRTC → Browser', '#ff006e')
-    lbl.position.set(CENTER.x, CENTER.y + 18, CENTER.z)
-    lbl.scale.setScalar(4.5)
-    this.group.add(lbl)
   }
 
   update(t: number) {

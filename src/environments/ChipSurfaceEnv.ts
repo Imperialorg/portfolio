@@ -36,7 +36,7 @@ void main() {
   float traceLine = step(0.96, grid.y);
   float dotX = fract(uv.x * 8.0 - uTime * 0.4 + hash(floor(uv.y * 24.0) * 7.1) * 10.0);
   float dot = traceLine * step(0.86, dotX) * step(dotX, 0.96);
-  col += vec3(0.3, 1.0, 0.6) * dot * 3.0;
+  col += vec3(0.3, 1.0, 0.6) * dot * 6.0;
 
   gl_FragColor = vec4(col, uVisible);
 }
@@ -107,7 +107,7 @@ export class ChipSurfaceEnv extends Environment {
     scene.add(this.group)
 
     // PCB substrate plane
-    const pcbGeo = new THREE.PlaneGeometry(50, 50)
+    const pcbGeo = new THREE.PlaneGeometry(70, 70)
     const pcbMat = new THREE.ShaderMaterial({
       vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
       fragmentShader: PCB_FRAG,
@@ -127,7 +127,7 @@ export class ChipSurfaceEnv extends Environment {
       uniforms: { uTime: { value: 0 }, uVisible: { value: 0 }, uColor: { value: new THREE.Color(0x00a8ff) } },
       transparent: true,
     })
-    const gpuDie = new THREE.Mesh(new THREE.BoxGeometry(10, 0.6, 10), gpuDieMat)
+    const gpuDie = new THREE.Mesh(new THREE.BoxGeometry(14, 0.8, 14), gpuDieMat)
     gpuDie.position.set(CENTER.x + 3, CENTER.y + 0.3, CENTER.z)
     this.group.add(gpuDie)
     this.mats.push(gpuDieMat)
@@ -139,7 +139,7 @@ export class ChipSurfaceEnv extends Environment {
       uniforms: { uTime: { value: 0 }, uVisible: { value: 0 }, uColor: { value: new THREE.Color(0x39ff14) } },
       transparent: true,
     })
-    const cpuDie = new THREE.Mesh(new THREE.BoxGeometry(6, 0.8, 6), cpuDieMat)
+    const cpuDie = new THREE.Mesh(new THREE.BoxGeometry(8, 1.0, 8), cpuDieMat)
     cpuDie.position.set(CENTER.x - 10, CENTER.y + 0.4, CENTER.z - 6)
     this.group.add(cpuDie)
     this.mats.push(cpuDieMat)
@@ -153,29 +153,13 @@ export class ChipSurfaceEnv extends Environment {
       depthWrite: false,
       side: THREE.DoubleSide,
     })
-    const pipePanel = new THREE.Mesh(new THREE.PlaneGeometry(12, 3), pipeMat)
-    pipePanel.position.set(CENTER.x + 3, CENTER.y + 8, CENTER.z)
+    const pipePanel = new THREE.Mesh(new THREE.PlaneGeometry(18, 5), pipeMat)
+    pipePanel.position.set(CENTER.x + 3, CENTER.y + 11, CENTER.z)
     pipePanel.rotation.x = -0.3
     this.group.add(pipePanel)
     this.mats.push(pipeMat)
 
     // Labels
-    const gpuLbl = makeLabelMesh('GPU DIE', 'CUDA Cores / SM Array', '#00a8ff')
-    gpuLbl.position.set(CENTER.x + 3, CENTER.y + 3, CENTER.z + 8)
-    gpuLbl.rotation.x = -Math.PI / 2 + 0.3
-    gpuLbl.scale.setScalar(3)
-    this.group.add(gpuLbl)
-
-    const cpuLbl = makeLabelMesh('CPU DIE', 'x86 Emulated on GPU', '#39ff14')
-    cpuLbl.position.set(CENTER.x - 10, CENTER.y + 3, CENTER.z - 2)
-    cpuLbl.rotation.x = -Math.PI / 2 + 0.3
-    cpuLbl.scale.setScalar(3)
-    this.group.add(cpuLbl)
-
-    const pipeLbl = makeLabelMesh('IF  →  ID  →  EX  →  MEM  →  WB', 'Instruction Pipeline', '#ffffff')
-    pipeLbl.position.set(CENTER.x + 3, CENTER.y + 12, CENTER.z)
-    pipeLbl.scale.setScalar(4)
-    this.group.add(pipeLbl)
   }
 
   update(t: number) {
