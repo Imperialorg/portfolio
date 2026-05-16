@@ -7,20 +7,20 @@ export const SECTION_KEYFRAMES: Array<{
   label: string
   t: number   // normalized position along spline (0–1), set after build
 }> = [
-  { pos: new THREE.Vector3(0, 180, 220),   look: new THREE.Vector3(0, 0, 0),       label: 'HERO',       t: 0 },
-  { pos: new THREE.Vector3(-40, 12, 110),  look: new THREE.Vector3(-20, 20, 60),   label: 'ABOUT',      t: 0 },
-  { pos: new THREE.Vector3(-80, -8, 55),   look: new THREE.Vector3(-80, -8, 20),   label: 'PS3 GPU',    t: 0 },
-  { pos: new THREE.Vector3(-75, 30, -25),  look: new THREE.Vector3(-75, 0, -25),   label: 'CPUonGPU',   t: 0 },
-  { pos: new THREE.Vector3(-30, 10, -60),  look: new THREE.Vector3(0, 20, -90),    label: 'GPU Stream', t: 0 },
-  { pos: new THREE.Vector3(20, 35, -80),   look: new THREE.Vector3(40, 25, -110),  label: 'Selkies',    t: 0 },
-  { pos: new THREE.Vector3(80, 55, -70),   look: new THREE.Vector3(100, 35, -100), label: 'Oris AI',    t: 0 },
-  { pos: new THREE.Vector3(110, 40, 0),    look: new THREE.Vector3(90, 22, -20),   label: 'VajraGrid',  t: 0 },
-  { pos: new THREE.Vector3(100, 20, 70),   look: new THREE.Vector3(70, 14, 50),    label: 'VidyaMitra', t: 0 },
-  { pos: new THREE.Vector3(50, 16, 100),   look: new THREE.Vector3(20, 12, 80),    label: 'Netflip',    t: 0 },
-  { pos: new THREE.Vector3(10, 22, 90),    look: new THREE.Vector3(-20, 16, 70),   label: 'Arena',      t: 0 },
-  { pos: new THREE.Vector3(-30, 60, 70),   look: new THREE.Vector3(-10, 40, 40),   label: 'Hackathon',  t: 0 },
-  { pos: new THREE.Vector3(-60, 8, 30),    look: new THREE.Vector3(-40, 8, 0),     label: 'SKILLS',     t: 0 },
-  { pos: new THREE.Vector3(0, 120, 160),   look: new THREE.Vector3(0, 0, 0),       label: 'CONTACT',    t: 0 },
+  { pos: new THREE.Vector3(0, 180, 220),   look: new THREE.Vector3(0, 0, 0),        label: 'HERO',       t: 0 },
+  { pos: new THREE.Vector3(-40, 12, 110),  look: new THREE.Vector3(-20, 20, 60),    label: 'ABOUT',      t: 0 },
+  { pos: new THREE.Vector3(-80, 8, 55),    look: new THREE.Vector3(-80, 58, 20),    label: 'PS3 GPU',    t: 0 },
+  { pos: new THREE.Vector3(-75, 10, 5),    look: new THREE.Vector3(-75, 62, -25),   label: 'CPUonGPU',   t: 0 },
+  { pos: new THREE.Vector3(-30, 10, -45),  look: new THREE.Vector3(0,   58, -90),   label: 'GPU Stream', t: 0 },
+  { pos: new THREE.Vector3(20, 10, -70),   look: new THREE.Vector3(40,  58, -110),  label: 'Selkies',    t: 0 },
+  { pos: new THREE.Vector3(80, 10, -60),   look: new THREE.Vector3(100, 58, -100),  label: 'Oris AI',    t: 0 },
+  { pos: new THREE.Vector3(110, 12, 20),   look: new THREE.Vector3(90,  58, -20),   label: 'VajraGrid',  t: 0 },
+  { pos: new THREE.Vector3(100, 10, 70),   look: new THREE.Vector3(70,  55, 50),    label: 'VidyaMitra', t: 0 },
+  { pos: new THREE.Vector3(50, 10, 100),   look: new THREE.Vector3(20,  55, 80),    label: 'Netflip',    t: 0 },
+  { pos: new THREE.Vector3(10, 10, 90),    look: new THREE.Vector3(-20, 55, 70),    label: 'Arena',      t: 0 },
+  { pos: new THREE.Vector3(-30, 12, 60),   look: new THREE.Vector3(-10, 62, 40),    label: 'Hackathon',  t: 0 },
+  { pos: new THREE.Vector3(-60, 8, 30),    look: new THREE.Vector3(-40, 8, 0),      label: 'SKILLS',     t: 0 },
+  { pos: new THREE.Vector3(0, 120, 160),   look: new THREE.Vector3(0, 0, 0),        label: 'CONTACT',    t: 0 },
 ]
 
 const SCROLL_LOCK_MS = 1600

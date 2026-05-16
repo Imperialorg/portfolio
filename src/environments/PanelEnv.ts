@@ -132,7 +132,7 @@ export class PanelEnv extends Environment {
     pivot.add(box(0.5, 19, 0.4, new THREE.Vector3( 20.25, 0, 0.1), frameMat))
 
     // ── Mounting structure (poles + crossbeam) ────────────────────────
-    const POLE_H = 14
+    const POLE_H = 60
     const structMat = track(new THREE.MeshBasicMaterial({
       color: 0x2a2a3e, transparent: true,
     }), 1.0)
