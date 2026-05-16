@@ -3,73 +3,124 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="D Shantan Dheer — Systems Programmer, GPU Engineer, Creative Dev" />
-  <meta property="og:title" content="D Shantan Dheer · Neon District" />
-  <meta property="og:description" content="GPU kernels. CUDA emulators. AI systems. 1st-year EEE at GCET." />
-  <title>D Shantan Dheer · Neon District</title>
+  <title>D SHANTAN DHEER — Neon District</title>
+  <meta name="description" content="Portfolio of D Shantan Dheer — EEE × AI × Systems Dev. GPU emulation, Rust, WebRTC, AI SRE." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet" />
-  <script type="module" crossorigin src="/neon-district/assets/index-DSjh28k9.js"></script>
-  <link rel="modulepreload" crossorigin href="/neon-district/assets/three-DK6CSVrk.js">
-  <link rel="modulepreload" crossorigin href="/neon-district/assets/postprocessing-BqWDh0gZ.js">
-  <link rel="stylesheet" crossorigin href="/neon-district/assets/index-Bv6ev6EY.css">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <script type="module" crossorigin src="/neon-district/assets/index-CjOAmFuo.js"></script>
+  <link rel="modulepreload" crossorigin href="/neon-district/assets/three-CeWgN7No.js">
+  <link rel="modulepreload" crossorigin href="/neon-district/assets/postprocessing-CMvRDKUy.js">
+  <link rel="modulepreload" crossorigin href="/neon-district/assets/gsap-SFc2wnMY.js">
+  <link rel="stylesheet" crossorigin href="/neon-district/assets/index-Cvt6-sHZ.css">
 </head>
 <body>
+  <!-- Three.js canvas fills background -->
+  <canvas id="scene-canvas" aria-hidden="true"></canvas>
+
+  <!-- Loading screen -->
   <div id="loading-screen">
-    <div id="boot-terminal">
-      <div class="boot-header">NEON DISTRICT OS v1.0 — INIT SEQUENCE</div>
-      <div id="boot-lines"></div>
-      <div class="boot-progress-wrap">
-        <div id="boot-bar"></div>
-        <span id="boot-pct">0%</span>
-      </div>
-      <div class="boot-hint blink">[ SCROLL TO JACK IN ]</div>
+    <div class="boot-panel">
+      <div class="boot-title">NEON DISTRICT <span class="boot-ver">v1.0</span></div>
+      <div class="boot-separator"></div>
+      <div id="boot-log"></div>
+      <div class="boot-bar-wrap"><div id="boot-bar"></div></div>
+      <div class="boot-prompt">[ ENTER ] or scroll to jack in</div>
     </div>
   </div>
 
-  <canvas id="canvas"></canvas>
-
-  <!-- Semantic HTML for accessibility / SEO (visually hidden, canvas is decorative) -->
-  <main id="content" aria-label="Portfolio content">
-    <section id="section-hero" aria-label="Introduction">
-      <h1>D Shantan Dheer</h1>
-      <p>Systems Programmer · GPU Engineer · 1st-year EEE, GCET</p>
-    </section>
-    <section id="section-projects" aria-label="Projects">
-      <h2>Projects</h2>
-      <ul>
-        <li><a href="https://github.com/Aerosane/ps3-cell-gpu-emulator">PS3 Cell GPU Emulator</a></li>
-        <li><a href="https://github.com/Aerosane/cpuongpu">CPUonGPU</a></li>
-        <li><a href="https://github.com/Aerosane/oris">Oris — Autonomous AI SRE</a></li>
-        <li><a href="https://github.com/Aerosane/vajragridr">VajraGrid</a></li>
-        <li><a href="https://github.com/Aerosane/iiser-exam-prep">IISER Exam Prep</a></li>
-        <li><a href="https://github.com/Aerosane/vidyamitra">VidyaMitra</a></li>
-        <li><a href="https://github.com/Aerosane/netflip-vod">Netflip VOD</a></li>
-        <li><a href="https://github.com/Aerosane/coding_arena">Coding Arena</a></li>
-      </ul>
-    </section>
-    <section id="section-contact" aria-label="Contact">
-      <h2>Contact</h2>
-      <a href="https://github.com/Aerosane">GitHub</a>
-      <a href="mailto:shantandheerd@gmail.com">Email</a>
-      <a href="https://linkedin.com/in/shantan-dheer-932082383">LinkedIn</a>
-    </section>
-  </main>
-
-  <!-- Project detail overlay -->
-  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true">
-    <button id="overlay-close" aria-label="Close project">✕</button>
-    <div id="overlay-content"></div>
+  <!-- HUD overlay -->
+  <div id="hud">
+    <div id="hud-name">D SHANTAN DHEER</div>
+    <div id="hud-section">DISTRICT_00 / LANDING</div>
+    <div id="hud-coords">SYS: NEON_DISTRICT_v1</div>
   </div>
 
-  <!-- Nav dots -->
-  <nav id="section-nav" aria-label="Section navigation">
-    <button class="nav-dot active" data-section="0" aria-label="Hero"></button>
-    <button class="nav-dot" data-section="1" aria-label="About"></button>
-    <button class="nav-dot" data-section="2" aria-label="Projects"></button>
-    <button class="nav-dot" data-section="3" aria-label="Skills"></button>
-    <button class="nav-dot" data-section="4" aria-label="Contact"></button>
-  </nav>
+  <!-- Vertical progress bar -->
+  <div id="progress-track">
+    <div id="progress-bar"></div>
+    <div id="nav-dots"></div>
+  </div>
+
+  <!-- Section panels — 14 total (hidden/shown by JS) -->
+  <!-- 0: HERO -->
+  <section id="sect-0" class="sect active">
+    <div class="sect-inner hero-inner">
+      <div class="glitch-wrap">
+        <h1 class="hero-name" data-text="D SHANTAN DHEER">D SHANTAN DHEER</h1>
+      </div>
+      <p class="hero-sub typewriter">EEE × AI × Systems × Creative Dev</p>
+      <p class="hero-year">1st Year · GCET Hyderabad · <span class="neon-cyan">2025–29</span></p>
+      <div class="hero-links">
+        <a href="https://github.com/aerosane" target="_blank" class="btn-neon">[ GITHUB ]</a>
+        <a href="https://linkedin.com/in/shantan-dheer" target="_blank" class="btn-neon magenta">[ LINKEDIN ]</a>
+      </div>
+      <div class="scroll-hint">▼ SCROLL TO EXPLORE THE DISTRICT ▼</div>
+    </div>
+  </section>
+
+  <!-- 1: ABOUT -->
+  <section id="sect-1" class="sect">
+    <div class="sect-inner about-inner">
+      <div class="terminal-window">
+        <div class="terminal-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="terminal-title">whoami.exe</span></div>
+        <div class="terminal-body">
+          <p><span class="prompt">&gt;</span> <span class="cmd">whoami</span></p>
+          <p class="output">D Shantan Dheer — EEE undergraduate at GCET Hyderabad</p>
+          <p class="output">GPU emulation · Rust systems · AI/ML · Full-stack dev</p>
+          <br/>
+          <p><span class="prompt">&gt;</span> <span class="cmd">cat interests.txt</span></p>
+          <p class="output neon-cyan">Low-level GPU architecture, WebRTC streaming, autonomous AI agents,</p>
+          <p class="output neon-cyan">procedural graphics, competitive programming, building things that</p>
+          <p class="output neon-cyan">most people say can't run in a browser.</p>
+          <br/>
+          <p><span class="prompt">&gt;</span> <span class="cmd">ls achievements/</span></p>
+          <p class="output">🏆 Runner-up TechSynapse 2026</p>
+          <p class="output">🇮🇳 India Innovates 2026 · Bharat Mandapam</p>
+          <p class="output neon-green">█ </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2–11: PROJECTS (populated by JS) -->
+  <section id="sect-2"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-2"></div></section>
+  <section id="sect-3"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-3"></div></section>
+  <section id="sect-4"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-4"></div></section>
+  <section id="sect-5"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-5"></div></section>
+  <section id="sect-6"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-6"></div></section>
+  <section id="sect-7"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-7"></div></section>
+  <section id="sect-8"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-8"></div></section>
+  <section id="sect-9"  class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-9"></div></section>
+  <section id="sect-10" class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-10"></div></section>
+  <section id="sect-11" class="sect proj-sect"><div class="sect-inner proj-inner" id="proj-11"></div></section>
+
+  <!-- 12: SKILLS -->
+  <section id="sect-12" class="sect">
+    <div class="sect-inner skills-inner">
+      <h2 class="sect-title neon-cyan">// TECH STACK</h2>
+      <div id="skills-grid"></div>
+    </div>
+  </section>
+
+  <!-- 13: CONTACT -->
+  <section id="sect-13" class="sect">
+    <div class="sect-inner contact-inner">
+      <div class="terminal-window contact-term">
+        <div class="terminal-bar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="terminal-title">contact.sh</span></div>
+        <div class="terminal-body">
+          <p><span class="prompt">&gt;</span> <span class="cmd">./contact.sh --list</span></p>
+          <p class="output">Available channels:</p>
+          <p class="output"><a href="https://github.com/aerosane" target="_blank" class="term-link neon-cyan">github.connect()    → github.com/aerosane</a></p>
+          <p class="output"><a href="mailto:shantan@example.com" class="term-link neon-magenta">email.send()        → [available on request]</a></p>
+          <p class="output"><a href="https://linkedin.com/in/shantan-dheer" target="_blank" class="term-link neon-green">linkedin.reach()    → linkedin.com/in/shantan-dheer</a></p>
+          <br/>
+          <p><span class="prompt">&gt;</span> <span class="cmd" id="contact-input-display">_</span></p>
+        </div>
+        <input id="contact-input" type="text" autocomplete="off" spellcheck="false" />
+      </div>
+      <p class="contact-hint">Type "sudo" for a surprise</p>
+    </div>
+  </section>
 
 </body>
 </html>

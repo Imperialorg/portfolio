@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite'
 
-export default defineConfig({
-  base: '/neon-district/',
+export default defineConfig(({ command }) => ({
+  // Dev: serve at '/' for easy local access
+  // Build: '/neon-district/' for GitHub Pages deployment
+  base: command === 'build' ? '/neon-district/' : '/',
+  server: { port: 4000 },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
@@ -15,4 +18,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

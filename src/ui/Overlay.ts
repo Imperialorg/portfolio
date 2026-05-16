@@ -1,4 +1,4 @@
-import { PROJECTS, ProjectData } from '../sections/data'
+import { PROJECTS, Project as ProjectData } from '../sections/data'
 
 export class Overlay {
   private el: HTMLElement
@@ -38,8 +38,8 @@ export class Overlay {
   isActive() { return this.active }
 
   private renderProject(p: ProjectData): string {
-    const tags = p.tags.map(t => `<span class="proj-overlay-tag">${t}</span>`).join('')
-    const badge = p.badge ? `<div class="proj-overlay-badge">${p.badge}</div>` : ''
+    const tags = p.tags.map((t: string) => `<span class="proj-overlay-tag">${t}</span>`).join('')
+    const badge = (p as any).badge ? `<div class="proj-overlay-badge">${(p as any).badge}</div>` : ''
     return `
       <div class="proj-overlay-title" style="text-shadow: 0 0 20px ${p.neonColor}">${p.title}</div>
       ${badge}

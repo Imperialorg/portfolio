@@ -1,110 +1,136 @@
 import * as THREE from 'three'
+import GSAP from 'gsap'
 
-// Scroll-driven camera path through the city
-export const SECTIONS = [
-  { name: 'hero',     label: 'JACK IN' },
-  { name: 'about',    label: 'IDENTITY' },
-  { name: 'projects', label: 'WORK' },
-  { name: 'skills',   label: 'ARSENAL' },
-  { name: 'contact',  label: 'REACH OUT' },
-]
-
-// Camera keyframes: [position, lookAt target]
-const KEYFRAMES: Array<{ pos: THREE.Vector3; target: THREE.Vector3 }> = [
-  // 0 — Hero: high above center, looking down at city
-  { pos: new THREE.Vector3(0, 220, 80),   target: new THREE.Vector3(0, 0, 0) },
-  // 1 — About: dive into street level alley
-  { pos: new THREE.Vector3(20, 30, 60),   target: new THREE.Vector3(20, 20, 0) },
-  // 2 — Projects: rooftop level arc, facing buildings
-  { pos: new THREE.Vector3(-60, 90, 20),  target: new THREE.Vector3(-20, 60, -60) },
-  // 3 — Skills: inside a grid corridor
-  { pos: new THREE.Vector3(40, 15, -80),  target: new THREE.Vector3(40, 20, -140) },
-  // 4 — Contact: ground level terminal plaza
-  { pos: new THREE.Vector3(-10, 8, -20),  target: new THREE.Vector3(-10, 10, -60) },
+// 14 sections: 0=hero, 1=about, 2-11=projects(10), 12=skills, 13=contact
+// Camera flies through the city grid (grid spans ±256 units)
+export const SECTION_KEYFRAMES: Array<{
+  pos: THREE.Vector3
+  look: THREE.Vector3
+  label: string
+}> = [
+  // 0 — HERO: high bird's eye dive in
+  { pos: new THREE.Vector3(0, 180, 220),   look: new THREE.Vector3(0, 0, 0),       label: 'HERO' },
+  // 1 — ABOUT: street level alley
+  { pos: new THREE.Vector3(-40, 12, 110),  look: new THREE.Vector3(-20, 20, 60),   label: 'ABOUT' },
+  // 2 — Project 0 (GPU Emulator): industrial district low
+  { pos: new THREE.Vector3(-90, 28, 60),   look: new THREE.Vector3(-60, 18, 30),   label: 'PS3 GPU' },
+  // 3 — Project 1 (CPUonGPU): wide view, looking at cluster
+  { pos: new THREE.Vector3(-80, 18, -10),  look: new THREE.Vector3(-50, 12, -30),  label: 'CPUonGPU' },
+  // 4 — Project 2 (GPU Streaming): billboard alley
+  { pos: new THREE.Vector3(-30, 10, -60),  look: new THREE.Vector3(0, 20, -90),    label: 'GPU Stream' },
+  // 5 — Project 3 (Selkies-Rust): rise to mid level
+  { pos: new THREE.Vector3(20, 35, -80),   look: new THREE.Vector3(40, 25, -110),  label: 'Selkies' },
+  // 6 — Project 4 (Oris AI): neon AI district rooftop
+  { pos: new THREE.Vector3(80, 55, -70),   look: new THREE.Vector3(100, 35, -100), label: 'Oris AI' },
+  // 7 — Project 5 (VajraGrid): power grid tower flyby
+  { pos: new THREE.Vector3(110, 40, 0),    look: new THREE.Vector3(90, 22, -20),   label: 'VajraGrid' },
+  // 8 — Project 6 (VidyaMitra): education zone, gentle
+  { pos: new THREE.Vector3(100, 20, 70),   look: new THREE.Vector3(70, 14, 50),    label: 'VidyaMitra' },
+  // 9 — Project 7 (Netflip): commercial neon zone
+  { pos: new THREE.Vector3(50, 16, 100),   look: new THREE.Vector3(20, 12, 80),    label: 'Netflip' },
+  // 10 — Project 8 (Coding Arena): arena building
+  { pos: new THREE.Vector3(10, 22, 90),    look: new THREE.Vector3(-20, 16, 70),   label: 'Arena' },
+  // 11 — Project 9 (Hackathon): trophy building
+  { pos: new THREE.Vector3(-30, 60, 70),   look: new THREE.Vector3(-10, 40, 40),   label: 'Hackathon' },
+  // 12 — SKILLS: server corridor, close low
+  { pos: new THREE.Vector3(-60, 8, 30),    look: new THREE.Vector3(-40, 8, 0),     label: 'SKILLS' },
+  // 13 — CONTACT: final pullback
+  { pos: new THREE.Vector3(0, 120, 160),   look: new THREE.Vector3(0, 0, 0),       label: 'CONTACT' },
 ]
 
 export class CameraPath {
   private camera: THREE.PerspectiveCamera
   private currentSection = 0
-  private totalScroll = 0
   private mouseX = 0
   private mouseY = 0
-  private lerpPos = new THREE.Vector3()
-  private lerpTarget = new THREE.Vector3()
+  private parallaxTarget = new THREE.Vector3()
+  onSectionChange?: (idx: number) => void
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera
-    this.lerpPos.copy(KEYFRAMES[0].pos)
-    this.lerpTarget.copy(KEYFRAMES[0].target)
-    this.camera.position.copy(KEYFRAMES[0].pos)
-    this.camera.lookAt(KEYFRAMES[0].target)
+    this.init()
   }
 
-  setupScrollListener(onSectionChange: (idx: number) => void) {
-    const totalSections = SECTIONS.length
+  private init() {
+    // Set initial position
+    const kf = SECTION_KEYFRAMES[0]
+    this.camera.position.copy(kf.pos)
+    this.camera.lookAt(kf.look)
 
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const delta = e.deltaY * 0.0012
-      this.totalScroll = Math.max(0, Math.min(totalSections - 1, this.totalScroll + delta))
-      const newSection = Math.floor(this.totalScroll)
-      if (newSection !== this.currentSection) {
-        this.currentSection = newSection
-        onSectionChange(newSection)
-      }
-    }
-
-    let lastTouchY = 0
-    const onTouchStart = (e: TouchEvent) => { lastTouchY = e.touches[0].clientY }
-    const onTouchMove = (e: TouchEvent) => {
-      const dy = (lastTouchY - e.touches[0].clientY) * 0.003
-      lastTouchY = e.touches[0].clientY
-      this.totalScroll = Math.max(0, Math.min(totalSections - 1, this.totalScroll + dy))
-      const newSection = Math.floor(this.totalScroll)
-      if (newSection !== this.currentSection) {
-        this.currentSection = newSection
-        onSectionChange(newSection)
-      }
-    }
-
-    window.addEventListener('wheel', onWheel, { passive: false })
-    window.addEventListener('touchstart', onTouchStart, { passive: true })
-    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    // Mouse parallax
     window.addEventListener('mousemove', (e) => {
       this.mouseX = (e.clientX / window.innerWidth - 0.5) * 2
       this.mouseY = (e.clientY / window.innerHeight - 0.5) * 2
     })
 
-    document.querySelectorAll('.nav-dot').forEach((dot, i) => {
-      dot.addEventListener('click', () => {
-        this.totalScroll = i
-        this.currentSection = i
-        onSectionChange(i)
-      })
+    // Scroll drives section changes
+    this.setupScrollListener()
+
+    // Keyboard arrow nav
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') this.goTo(this.currentSection + 1)
+      if (e.key === 'ArrowUp'   || e.key === 'ArrowLeft')  this.goTo(this.currentSection - 1)
     })
   }
 
-  update(dt: number) {
-    const t = this.totalScroll
-    const i0 = Math.floor(t)
-    const i1 = Math.min(i0 + 1, KEYFRAMES.length - 1)
-    const frac = t - i0
-    const smooth = frac * frac * (3 - 2 * frac)
+  private setupScrollListener() {
+    let lastY = 0
+    let locked = false
 
-    const tPos = new THREE.Vector3().lerpVectors(KEYFRAMES[i0].pos, KEYFRAMES[i1].pos, smooth)
-    const tLook = new THREE.Vector3().lerpVectors(KEYFRAMES[i0].target, KEYFRAMES[i1].target, smooth)
+    window.addEventListener('wheel', (e) => {
+      if (locked) return
+      locked = true
+      const dir = e.deltaY > 0 ? 1 : -1
+      this.goTo(this.currentSection + dir)
+      setTimeout(() => { locked = false }, 900)
+    }, { passive: true })
 
-    // Mouse parallax
-    tPos.x += this.mouseX * 8
-    tPos.y -= this.mouseY * 5
-
-    this.lerpPos.lerp(tPos, Math.min(dt * 2.5, 1))
-    this.lerpTarget.lerp(tLook, Math.min(dt * 3, 1))
-
-    this.camera.position.copy(this.lerpPos)
-    this.camera.lookAt(this.lerpTarget)
+    // Touch
+    window.addEventListener('touchstart', (e) => { lastY = e.touches[0].clientY })
+    window.addEventListener('touchend', (e) => {
+      const dy = lastY - e.changedTouches[0].clientY
+      if (Math.abs(dy) > 40) this.goTo(this.currentSection + (dy > 0 ? 1 : -1))
+    })
   }
 
-  getSection() { return this.currentSection }
-  getScrollT() { return this.totalScroll }
+  goTo(idx: number) {
+    idx = Math.max(0, Math.min(SECTION_KEYFRAMES.length - 1, idx))
+    if (idx === this.currentSection) return
+    this.currentSection = idx
+    const kf = SECTION_KEYFRAMES[idx]
+
+    GSAP.to(this.camera.position, {
+      x: kf.pos.x, y: kf.pos.y, z: kf.pos.z,
+      duration: 1.8,
+      ease: 'power2.inOut',
+    })
+    GSAP.to(this.parallaxTarget, {
+      x: kf.look.x, y: kf.look.y, z: kf.look.z,
+      duration: 1.8,
+      ease: 'power2.inOut',
+      onUpdate: () => this.camera.lookAt(this.parallaxTarget),
+    })
+
+    this.onSectionChange?.(idx)
+
+    // Update progress dots
+    const dots = document.querySelectorAll('.nav-dot')
+    dots.forEach((d, i) => d.classList.toggle('active', i === idx))
+    const pct = (idx / (SECTION_KEYFRAMES.length - 1)) * 100
+    const bar = document.getElementById('progress-bar')
+    if (bar) bar.style.height = pct + '%'
+  }
+
+  update(_delta: number) {
+    // Subtle parallax wiggle — only when camera has settled
+    const kf = SECTION_KEYFRAMES[this.currentSection]
+    const lookTarget = new THREE.Vector3(
+      kf.look.x + this.mouseX * 8,
+      kf.look.y - this.mouseY * 5,
+      kf.look.z
+    )
+    this.camera.lookAt(lookTarget)
+  }
+
+  getCurrentSection() { return this.currentSection }
 }
