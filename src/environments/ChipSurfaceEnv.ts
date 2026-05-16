@@ -32,29 +32,23 @@ float sdRect(vec2 p, vec2 c, vec2 hs) {
 float traceNet(vec2 uv, float traceW, out float tId, out float tPos) {
   tId=-1.; tPos=0.;
   float best=1e9;
-  // --- POWER BUS (thick horizontal, left to right across middle) ---
   float d;
-  d=sdSeg(uv,vec2(0.05,0.50),vec2(0.95,0.50)); if(d<best){best=d;tId=0.;tPos=(uv.x-0.05)/0.90;}
+  // --- POWER BUS (thick horizontal center) ---
+  d=sdSeg(uv,vec2(0.04,0.50),vec2(0.96,0.50)); if(d<best){best=d;tId=0.;tPos=(uv.x-0.04)/0.92;}
   // --- VDD rail (top) ---
-  d=sdSeg(uv,vec2(0.05,0.82),vec2(0.95,0.82)); if(d<best){best=d;tId=1.;tPos=(uv.x-0.05)/0.90;}
+  d=sdSeg(uv,vec2(0.04,0.80),vec2(0.96,0.80)); if(d<best){best=d;tId=1.;tPos=(uv.x-0.04)/0.92;}
   // --- GND rail (bottom) ---
-  d=sdSeg(uv,vec2(0.05,0.18),vec2(0.95,0.18)); if(d<best){best=d;tId=2.;tPos=(uv.x-0.05)/0.90;}
-  // --- CPU to GPU data bus (L-route: down then across) ---
-  d=sdSeg(uv,vec2(0.28,0.68),vec2(0.28,0.50)); if(d<best){best=d;tId=3.;tPos=(0.68-uv.y)/0.18;}
-  d=sdSeg(uv,vec2(0.28,0.50),vec2(0.62,0.50)); if(d<best){best=d;tId=3.;tPos=0.5+(uv.x-0.28)/0.68;}
-  d=sdSeg(uv,vec2(0.62,0.50),vec2(0.62,0.65)); if(d<best){best=d;tId=3.;tPos=0.8+(uv.y-0.50)/0.30;}
-  // --- CPU cache bus (vertical left side) ---
-  d=sdSeg(uv,vec2(0.22,0.35),vec2(0.22,0.65)); if(d<best){best=d;tId=4.;tPos=(uv.y-0.35)/0.30;}
-  // --- GPU shader bus (multiple parallel horizontals on right) ---
-  d=sdSeg(uv,vec2(0.58,0.55),vec2(0.92,0.55)); if(d<best){best=d;tId=5.;tPos=(uv.x-0.58)/0.34;}
-  d=sdSeg(uv,vec2(0.58,0.58),vec2(0.92,0.58)); if(d<best){best=d;tId=6.;tPos=(uv.x-0.58)/0.34;}
-  d=sdSeg(uv,vec2(0.58,0.61),vec2(0.92,0.61)); if(d<best){best=d;tId=7.;tPos=(uv.x-0.58)/0.34;}
-  // --- Differential pair (close parallel traces) ---
-  d=sdSeg(uv,vec2(0.10,0.35),vec2(0.45,0.35)); if(d<best){best=d;tId=8.;tPos=(uv.x-0.10)/0.35;}
-  d=sdSeg(uv,vec2(0.10,0.37),vec2(0.45,0.37)); if(d<best){best=d;tId=9.;tPos=(uv.x-0.10)/0.35;}
-  // --- VIA connect stubs ---
-  d=sdSeg(uv,vec2(0.50,0.50),vec2(0.50,0.35)); if(d<best){best=d;tId=10.;tPos=(0.50-uv.y)/0.15;}
-  d=sdSeg(uv,vec2(0.35,0.50),vec2(0.35,0.65)); if(d<best){best=d;tId=11.;tPos=(uv.y-0.50)/0.15;}
+  d=sdSeg(uv,vec2(0.04,0.20),vec2(0.96,0.20)); if(d<best){best=d;tId=2.;tPos=(uv.x-0.04)/0.92;}
+  // --- CPU→GPU data bus (L-route) ---
+  d=sdSeg(uv,vec2(0.30,0.65),vec2(0.30,0.50)); if(d<best){best=d;tId=3.;tPos=(0.65-uv.y)/0.15;}
+  d=sdSeg(uv,vec2(0.30,0.50),vec2(0.65,0.50)); if(d<best){best=d;tId=3.;tPos=0.5+(uv.x-0.30)/0.70;}
+  d=sdSeg(uv,vec2(0.65,0.50),vec2(0.65,0.65)); if(d<best){best=d;tId=3.;tPos=0.85+(uv.y-0.50)/0.30;}
+  // --- Cache bus (vertical) ---
+  d=sdSeg(uv,vec2(0.20,0.35),vec2(0.20,0.65)); if(d<best){best=d;tId=4.;tPos=(uv.y-0.35)/0.30;}
+  // --- GPU shader bus x3 parallel ---
+  d=sdSeg(uv,vec2(0.60,0.55),vec2(0.93,0.55)); if(d<best){best=d;tId=5.;tPos=(uv.x-0.60)/0.33;}
+  d=sdSeg(uv,vec2(0.60,0.59),vec2(0.93,0.59)); if(d<best){best=d;tId=6.;tPos=(uv.x-0.60)/0.33;}
+  d=sdSeg(uv,vec2(0.60,0.63),vec2(0.93,0.63)); if(d<best){best=d;tId=7.;tPos=(uv.x-0.60)/0.33;}
   return best;
 }
 
@@ -232,9 +226,10 @@ export class ChipSurfaceEnv extends Environment {
       uniforms: { uTime: { value: 0 }, uVisible: { value: 0 } },
       transparent: true,
     })
-    const pcb = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), this.pcbMat)
+    const pcb = new THREE.Mesh(new THREE.PlaneGeometry(45, 45), this.pcbMat)
     pcb.rotation.x = -Math.PI / 2
     pcb.position.copy(CENTER)
+    pcb.renderOrder = 1
     this.group.add(pcb)
 
     // Pipeline diagram floating above (vertical billboard, faces camera looking down)

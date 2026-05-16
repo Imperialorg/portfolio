@@ -95,6 +95,60 @@ function updateDistrictColor(sectionIdx: number) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// SECTION ENTRY BANNER
+// ──────────────────────────────────────────────────────────────
+const SECTION_META: [string, string][] = [
+  ['NEON DISTRICT',   'A cyberpunk portfolio'],
+  ['ABOUT',           'Who is behind this'],
+  ['PS3 CELL GPU',    'PS3 SPU emulator in WebGL'],
+  ['CPUonGPU',        'x86 CPU running on GPU'],
+  ['GPU STREAMING',   'Sub-frame game streaming'],
+  ['SELKIES RUST',    'WebRTC stack rebuilt in Rust'],
+  ['ORIS AI',         'Autonomous SRE agent'],
+  ['VAJRAGRID',       'AI power grid security'],
+  ['VIDYAMITRA',      'Adaptive JEE AI tutor'],
+  ['NETFLIP',         'HLS streaming platform'],
+  ['ARENA OJ',        'Online judge platform'],
+  ['HACKATHON',       'Competition highlights'],
+  ['TECH STACK',      'Tools and languages'],
+  ['CONTACT',         'Get in touch'],
+]
+
+const _banner = document.createElement('div')
+_banner.id = 'section-banner'
+Object.assign(_banner.style, {
+  position: 'fixed', top: '50%', left: '50%',
+  transform: 'translate(-50%, -50%)',
+  textAlign: 'center', pointerEvents: 'none',
+  zIndex: '50', opacity: '0', transition: 'opacity 0.4s',
+})
+document.body.appendChild(_banner)
+
+let _bannerTimeout = 0
+function showBanner(idx: number) {
+  const [name, purpose] = SECTION_META[idx] ?? ['', '']
+  const neon = DISTRICT_COLORS[idx] ?? '#00f5ff'
+  _banner.innerHTML = `
+    <div style="font-family:monospace;font-size:9px;letter-spacing:4px;color:${neon};margin-bottom:6px;text-transform:uppercase;opacity:0.7">
+      DISTRICT_${String(idx).padStart(2,'0')}
+    </div>
+    <div style="font-family:monospace;font-size:clamp(1.4rem,4vw,2.6rem);font-weight:900;color:#fff;
+                text-shadow:0 0 30px ${neon},0 0 60px ${neon}88;letter-spacing:0.08em;line-height:1.1">
+      ${name}
+    </div>
+    <div style="font-family:monospace;font-size:clamp(0.7rem,1.8vw,0.95rem);color:${neon};
+                letter-spacing:0.15em;margin-top:8px;opacity:0.85">
+      ${purpose}
+    </div>
+  `
+  _banner.style.opacity = '1'
+  clearTimeout(_bannerTimeout)
+  _bannerTimeout = window.setTimeout(() => {
+    _banner.style.opacity = '0'
+  }, 2200)
+}
+
+// ──────────────────────────────────────────────────────────────
 // CAMERA PATH
 // ──────────────────────────────────────────────────────────────
 const camPath = new CameraPath(camera)
@@ -104,6 +158,7 @@ camPath.onSectionChange = (idx) => {
   updateDistrictColor(idx)
   postFX.triggerGlitch()
   envManager.onSection(idx)
+  showBanner(idx)
 }
 
 // ──────────────────────────────────────────────────────────────

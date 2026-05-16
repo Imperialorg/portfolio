@@ -18,7 +18,7 @@ void main() {
   vActivation = aActivation;
   vIsAnomaly = float(int(aNodeId) == uAnomalyNode ? 1 : 0);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = 14.0 + 8.0 * vActivation + 8.0 * vIsAnomaly;
+  gl_PointSize = 40.0 + 24.0 * vActivation + 20.0 * vIsAnomaly;
 }
 `
 const NODE_FRAG = `
@@ -31,16 +31,15 @@ void main() {
   float d = length(uv);
   if (d > 0.5) discard;
   float ring  = 1.0 - smoothstep(0.30, 0.50, d);
-  float inner = 1.0 - smoothstep(0.08, 0.22, d);
+  float inner = 1.0 - smoothstep(0.05, 0.20, d);
   float pulse = 0.7 + 0.3 * sin(uTime * 3.0 + vActivation * 6.28);
   vec3 normalCol  = mix(vec3(0.4, 0.05, 0.9), vec3(0.9, 0.3, 1.0), vActivation);
   float resolved  = 0.5 + 0.5 * sin(uTime * 2.5);
   vec3 anomalyCol = mix(vec3(1.0, 0.05, 0.1), vec3(0.0, 1.0, 0.5), resolved);
   vec3 col = mix(normalCol, anomalyCol, vIsAnomaly);
-  float alpha = (ring * 0.4 + inner) * pulse * uVisible;
-  gl_FragColor = vec4(col * (ring + inner * 1.5), alpha);
-}
-`
+  float alpha = (ring * 0.6 + inner * 1.2) * pulse * uVisible;
+  gl_FragColor = vec4(col * (ring * 1.5 + inner * 2.5), alpha);
+}`
 
 // ── edge shaders: activation pulses traveling along connections ──────────────
 const EDGE_VERT = `
@@ -57,13 +56,13 @@ uniform float uTime;
 uniform float uVisible;
 varying float vEdgePhase;
 void main() {
-  float t   = fract(uTime * 0.7 + vEdgePhase);
-  float pulse = exp(-abs(t - 0.5) * 9.0);
-  vec3 col  = mix(vec3(0.25, 0.0, 0.6), vec3(1.0, 0.5, 1.0), pulse);
-  float alpha = (0.25 + 0.75 * pulse * 1.4) * uVisible;
-  gl_FragColor = vec4(col, alpha);
-}
-`
+  float t     = fract(uTime * 0.9 + vEdgePhase);
+  float pulse = exp(-abs(t - 0.5) * 6.0);
+  float base  = 0.18;
+  vec3 col    = mix(vec3(0.4, 0.0, 0.9), vec3(1.0, 0.6, 1.0), pulse);
+  float alpha = (base + (1.0 - base) * pulse * 2.2) * uVisible;
+  gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+}`
 
 // ── dark holographic floor ───────────────────────────────────────────────────
 const FLOOR_VERT = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`
@@ -178,6 +177,36 @@ export class NeuralNetEnv extends Environment {
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     })
     this.group.add(new THREE.LineSegments(edgeGeo, this.edgeMat))
+
+    // Title plate — makes the model instantly readable
+    const titleCanvas = document.createElement('canvas')
+    titleCanvas.width = 512; titleCanvas.height = 128
+    const tc = titleCanvas.getContext('2d')!
+    tc.clearRect(0, 0, 512, 128)
+    tc.font = 'bold 36px monospace'
+    tc.textAlign = 'center'
+    tc.shadowColor = '#b000ff'; tc.shadowBlur = 28
+    tc.fillStyle = '#ffffff'; tc.fillText('ORIS AI', 256, 52)
+    tc.shadowBlur = 10; tc.font = '16px monospace'
+    tc.fillStyle = '#b000ff'; tc.fillText('5-LAYER ANOMALY DETECTION NETWORK', 256, 86)
+    tc.shadowBlur = 6; tc.font = '11px monospace'
+    tc.fillStyle = '#7040ff88'; tc.fillText('40 NODES  ·  5 LAYERS  ·  GEMINI 2.0 BACKEND', 256, 112)
+    const titleTex = new THREE.CanvasTexture(titleCanvas)
+    const titleMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(28, 7),
+      new THREE.MeshBasicMaterial({ map: titleTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, alphaTest: 0.02 })
+    )
+    titleMesh.position.set(CENTER.x, CENTER.y + 30, CENTER.z)
+    titleMesh.frustumCulled = false
+    titleMesh.onBeforeRender = (_r, _s, cam) => titleMesh.quaternion.copy(cam.quaternion)
+    this.group.add(titleMesh)
+
+    // Clickable label
+    const proj = PROJECTS[4]
+    const lbl = makeFloatingLabel(proj.title, proj.neonColor, () => showProjectPanel(proj))
+    lbl.position.set(CENTER.x + 20, CENTER.y + 20, CENTER.z)
+    lbl.scale.setScalar(2.0)
+    this.group.add(lbl)
 
     // Log stream panel
     this.logCanvas = document.createElement('canvas')
