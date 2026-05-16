@@ -55,10 +55,11 @@ function cellToDistrict(ix: number, iz: number): number {
 }
 
 export class CityGenerator {
-  // 3 mesh types for visual variety
+  // 4 mesh types for visual variety
   meshA!: THREE.InstancedMesh  // box skyscrapers (60%)
   meshB!: THREE.InstancedMesh  // slim cylinder towers (20%)
   meshC!: THREE.InstancedMesh  // wide slab buildings (20%)
+  meshD!: THREE.InstancedMesh  // needle towers (5% extra pass)
   private mats: THREE.ShaderMaterial[] = []
 
   generate(scene: THREE.Scene) {
@@ -96,12 +97,38 @@ export class CityGenerator {
     this.meshC.frustumCulled = false
     this.mats.push(this.meshC.material as THREE.ShaderMaterial)
 
+    // ── Type D: Needle towers ────────────────────────────
+    const geoD = new THREE.BoxGeometry(1, 1, 1)
+    const heightsD = new Float32Array(MAX)
+    const colorsD  = new Float32Array(MAX * 3)
+    geoD.setAttribute('aHeight',    new THREE.InstancedBufferAttribute(heightsD, 1))
+    geoD.setAttribute('aNeonColor', new THREE.InstancedBufferAttribute(colorsD, 3))
+    this.meshD = new THREE.InstancedMesh(geoD, mat.clone(), MAX)
+    this.meshD.frustumCulled = false
+    this.mats.push(this.meshD.material as THREE.ShaderMaterial)
+
     const mtx = new THREE.Matrix4()
     const pos = new THREE.Vector3()
     const scl = new THREE.Vector3()
     const quat = new THREE.Quaternion()
 
-    let cA = 0, cB = 0, cC = 0
+    let cA = 0, cB = 0, cC = 0, cD = 0
+
+    // Rooftop glow disc instances (up to 200)
+    const discGeo = new THREE.CylinderGeometry(1, 1, 0.3, 16)
+    const discMeshes: THREE.InstancedMesh[] = []
+    const DISC_COLORS = [0x00f5ff, 0xff00aa, 0xff6b1a, 0x7b2fff, 0x00ff88, 0xffe642]
+    for (const col of DISC_COLORS) {
+      const discMat = new THREE.MeshBasicMaterial({
+        color: col, transparent: true, opacity: 0.7,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      })
+      const dm = new THREE.InstancedMesh(discGeo, discMat, 34)
+      dm.frustumCulled = false
+      dm.count = 0
+      discMeshes.push(dm)
+    }
+    const discCounts = new Int32Array(DISC_COLORS.length)
 
     for (let ix = 0; ix < GRID; ix++) {
       for (let iz = 0; iz < GRID; iz++) {
@@ -151,18 +178,99 @@ export class CityGenerator {
           mtx.compose(pos, quat, scl)
           this.meshC.setMatrixAt(cC, mtx); cC++
         }
+
+        // Type D — needle tower (extra 5% pass, independent of main roll)
+        if (Math.random() >= 0.95) {
+          const nfw = rand(1.5, 4)
+          const nfd = rand(1.5, 4)
+          const nh  = h * 1.8
+          heightsD[cD] = nh
+          colorsD[cD*3]   = neon.r; colorsD[cD*3+1] = neon.g; colorsD[cD*3+2] = neon.b
+          pos.set(wx + rand(-2, 2), nh / 2, wz + rand(-2, 2)); scl.set(nfw, nh, nfd)
+          mtx.compose(pos, quat, scl)
+          this.meshD.setMatrixAt(cD, mtx); cD++
+        }
+
+        // Rooftop glow disc — 15% chance
+        if (Math.random() < 0.15) {
+          const colorIdx = di % DISC_COLORS.length
+          const dm = discMeshes[colorIdx]
+          const ci = discCounts[colorIdx]
+          if (ci < 34) {
+            const discR = fw * 0.6
+            pos.set(wx, h, wz); scl.set(discR, 1, discR)
+            mtx.compose(pos, quat, scl)
+            dm.setMatrixAt(ci, mtx)
+            discCounts[colorIdx]++
+          }
+        }
       }
     }
 
     this.meshA.count = cA
     this.meshB.count = cB
     this.meshC.count = cC
+    this.meshD.count = cD
 
-    for (const mesh of [this.meshA, this.meshB, this.meshC]) {
+    for (const mesh of [this.meshA, this.meshB, this.meshC, this.meshD]) {
       mesh.instanceMatrix.needsUpdate = true
       const g = mesh.geometry
       ;(g.getAttribute('aHeight')    as THREE.BufferAttribute).needsUpdate = true
       ;(g.getAttribute('aNeonColor') as THREE.BufferAttribute).needsUpdate = true
+      scene.add(mesh)
+    }
+
+    // Add rooftop glow discs
+    for (let i = 0; i < discMeshes.length; i++) {
+      discMeshes[i].count = discCounts[i]
+      discMeshes[i].instanceMatrix.needsUpdate = true
+      scene.add(discMeshes[i])
+    }
+  }
+
+  addSearchlights(scene: THREE.Scene) {
+    // Open cone geometry pointing upward
+    const geo = new THREE.CylinderGeometry(0.3, 2.5, 1, 6, 1, true)
+
+    const configs = [
+      { color: 0xffffff, opacity: 0.08, count: 34 },
+      { color: 0x44ffff, opacity: 0.07, count: 26 },
+      { color: 0xff44aa, opacity: 0.07, count: 20 },
+    ]
+
+    const mtx = new THREE.Matrix4()
+    const pos = new THREE.Vector3()
+    const scl = new THREE.Vector3()
+    const quat = new THREE.Quaternion()
+
+    for (const cfg of configs) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: cfg.color,
+        transparent: true,
+        opacity: cfg.opacity,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+      const mesh = new THREE.InstancedMesh(geo, mat, cfg.count)
+      mesh.frustumCulled = false
+
+      for (let i = 0; i < cfg.count; i++) {
+        const ix = randInt(0, GRID - 1)
+        const iz = randInt(0, GRID - 1)
+        const wx = ix * CELL - HALF
+        const wz = iz * CELL - HALF
+        const nx = (ix / GRID) * 4 - 2
+        const nz = (iz / GRID) * 4 - 2
+        const hf = Math.max(0.18, 1 - Math.sqrt(nx*nx + nz*nz) / 3 * 0.6)
+        const h  = Math.max(8, (22 + fbm(nx, nz, 5) * 170) * hf) + rand(4, 28)
+        // Place beam base at top of building, scale very tall
+        pos.set(wx + rand(-2, 2), h + 150, wz + rand(-2, 2))
+        scl.set(1, 300, 1)
+        mtx.compose(pos, quat, scl)
+        mesh.setMatrixAt(i, mtx)
+      }
+      mesh.instanceMatrix.needsUpdate = true
       scene.add(mesh)
     }
   }

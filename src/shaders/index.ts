@@ -54,22 +54,78 @@ float windowGrid(vec2 uv, vec2 scale, vec2 id) {
 }
 
 void main() {
-  vec3 base = vec3(0.033, 0.033, 0.052);
+  // Very dark near-black base
+  vec3 base = vec3(0.012, 0.012, 0.020);
 
-  float density = mix(7.0, 24.0, clamp(vHeight / 200.0, 0.0, 1.0));
-  vec2 winScale = vec2(density * 0.55, density);
+  // Window grid with higher density variation
+  float density = mix(8.0, 28.0, clamp(vHeight / 200.0, 0.0, 1.0));
+  vec2 winScale = vec2(density * 0.52, density);
   vec2 winId = floor(vUv * winScale);
   float win = windowGrid(vUv, winScale, winId);
 
+  // Richer window color palette: amber, cool blue, neon, purple, white
   float h = hash(winId + floor(vWorldPos.xz * 0.01));
   vec3 winColor;
-  if      (h < 0.28) winColor = vec3(1.0, 0.88, 0.5);
-  else if (h < 0.48) winColor = vec3(0.35, 0.62, 1.0);
-  else if (h < 0.64) winColor = vNeonColor * 2.4;
-  else if (h < 0.76) winColor = vec3(0.72, 0.22, 1.0);
-  else               winColor = vec3(0.95, 0.97, 1.0);
+  if      (h < 0.22) winColor = vec3(1.0, 0.82, 0.38);   // warm amber
+  else if (h < 0.40) winColor = vec3(0.28, 0.55, 1.0);   // cool blue
+  else if (h < 0.58) winColor = vNeonColor * 2.6;         // district neon
+  else if (h < 0.72) winColor = vec3(1.0, 0.1, 0.55);    // hot magenta
+  else if (h < 0.84) winColor = vec3(0.1, 0.9, 1.0);     // bright cyan
+  else               winColor = vec3(0.95, 0.97, 1.0);   // white
 
-  vec3 color = base + win * winColor * 1.15;
+  vec3 color = base + win * winColor * 1.3;
+
+  // ── HORIZONTAL NEON BANDS ────────────────────────────────
+  // Use building footprint hash to place 1–3 bands at random Y positions
+  vec2 bldSeed = floor(vWorldPos.xz * 0.015);
+  float bldHash = hash(bldSeed);
+  float numBands = floor(bldHash * 3.0) + 1.0;  // 1, 2, or 3 bands
+  float bandPulse = 0.75 + 0.25 * sin(uTime * 0.8 + bldHash * 6.28);
+
+  for (int bi = 0; bi < 3; bi++) {
+    if (float(bi) >= numBands) break;
+    float bandSeed = hash(bldSeed + vec2(float(bi) * 3.7, 1.3));
+    float bandY = 0.1 + bandSeed * 0.75;  // position along UV height
+    float bandWidth = 0.005 + hash(bldSeed + vec2(float(bi), 9.1)) * 0.010;
+    float bandDist = abs(vUv.y - bandY);
+    float band = 1.0 - smoothstep(0.0, bandWidth, bandDist);
+
+    // Cycle color between neon, magenta, cyan by band index
+    vec3 bandColor;
+    float colorSel = hash(bldSeed + vec2(float(bi) * 2.1, 5.5));
+    if      (colorSel < 0.33) bandColor = vNeonColor;
+    else if (colorSel < 0.66) bandColor = vec3(1.0, 0.1, 0.55);
+    else                      bandColor = vec3(0.1, 0.9, 1.0);
+
+    color += band * bandColor * 3.5 * bandPulse;
+  }
+
+  // ── VERTICAL NEON EDGE STRIPS ────────────────────────────
+  float edgeL = 1.0 - smoothstep(0.0, 0.025, vUv.x);
+  float edgeR = 1.0 - smoothstep(0.0, 0.025, 1.0 - vUv.x);
+  color += (edgeL + edgeR) * vNeonColor * 1.8;
+
+  // ── ROOFTOP CAP GLOW ─────────────────────────────────────
+  color += smoothstep(0.92, 1.0, vUv.y) * vNeonColor * 3.0;
+
+  // ── NEON SIGN PATTERN on 30% of buildings ────────────────
+  float signHash = hash(floor(vWorldPos.xz * 0.02));
+  if (signHash < 0.30) {
+    // Large geometric pattern: diagonal triangle stripe in mid-face region
+    float px = vUv.x;
+    float py = vUv.y;
+    // Triangle mask: area where py > 0.25 && py < 0.65 && px between diagonal lines
+    float inZone = step(0.22, py) * step(py, 0.68);
+    float diagA = step(px + py * 0.6, 1.1);
+    float diagB = step(0.4, px + py * 0.5);
+    float tri = inZone * diagA * diagB;
+    // Outline only — thin band around the pattern
+    float outerA = step(px + py * 0.6, 1.15) * (1.0 - step(px + py * 0.6, 1.05));
+    float outerB = step(0.35, px + py * 0.5) * (1.0 - step(0.45, px + py * 0.5));
+    float outline = inZone * (outerA + outerB);
+    vec3 signColor = (signHash < 0.15) ? vec3(1.0, 0.1, 0.5) : vNeonColor;
+    color += outline * signColor * 4.0;
+  }
 
   // ── CLOSE-UP DETAIL (distance-gated at 40→12 units) ──────
   float camDist = length(vWorldPos - cameraPosition);
@@ -80,7 +136,7 @@ void main() {
   float ledge = 1.0 - smoothstep(0.01, 0.06, floorFract);
   color += ledge * closeBlend * 0.09 * vec3(1.0, 1.0, 1.2);
 
-  // Corner edge glow — vertical neon trace at building corners
+  // Corner edge glow — vertical neon trace at building corners (close-up boost)
   float cornerDist = min(vUv.x, 1.0 - vUv.x);
   float cornerEdge = 1.0 - smoothstep(0.0, 0.04, cornerDist);
   color += cornerEdge * closeBlend * vNeonColor * 0.5;
@@ -90,11 +146,10 @@ void main() {
   float grain = hash(grainUV);
   color += (grain - 0.5) * closeBlend * 0.04;
 
-  // ── ROOF TOP CAP + FRESNEL ────────────────────────────────
+  // ── FRESNEL ───────────────────────────────────────────────
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
   float fresnel = pow(1.0 - max(dot(vNormal, viewDir), 0.0), 2.8);
   color += vNeonColor * fresnel * 0.6;
-  color += vNeonColor * step(0.975, vUv.y) * 1.1;
 
   // ── FOG ──────────────────────────────────────────────────
   float dist = length(vWorldPos - cameraPosition);
