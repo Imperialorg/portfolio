@@ -2,31 +2,6 @@ import * as THREE from 'three'
 import { Environment } from './Environment'
 import { PROJECTS, Project } from '../sections/data'
 
-// Scan-wipe reveal shader for the billboard panel
-const revealVert = /* glsl */`
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`
-const revealFrag = /* glsl */`
-uniform sampler2D uMap;
-uniform float uReveal;   // 0=hidden, 1=fully shown
-uniform float uOpacity;
-uniform vec3 uNeon;
-varying vec2 vUv;
-void main() {
-  vec4 tex = texture2D(uMap, vUv);
-  // Wipe left→right: pixels with x < uReveal are shown
-  float hidden = smoothstep(uReveal - 0.04, uReveal + 0.04, vUv.x);
-  // Bright neon scan-line at the leading edge
-  float atEdge = 1.0 - smoothstep(0.0, 0.04, abs(vUv.x - uReveal));
-  vec3 col = tex.rgb + uNeon * atEdge * 3.5;
-  gl_FragColor = vec4(col, tex.a * (1.0 - hidden) * uOpacity);
-}
-`
-
 export function drawPanelCanvas(proj: Project): HTMLCanvasElement {
   const W = 900, H = 440
   const c = document.createElement('canvas')
@@ -147,10 +122,8 @@ export class PanelEnv extends Environment {
   private projIdx: number
   private panelPos: THREE.Vector3
   private camPos: THREE.Vector3
-  // [material, maxOpacity] pairs for fade-in/out
   private fadeMats: Array<[THREE.MeshBasicMaterial, number]> = []
   private particleMat!: THREE.PointsMaterial
-  private panelShaderMat!: THREE.ShaderMaterial
 
   constructor(projIdx: number, panelPos: THREE.Vector3, camPos: THREE.Vector3) {
     super()
@@ -178,22 +151,13 @@ export class PanelEnv extends Environment {
       return mat
     }
 
-    // ── Panel face — scan-wipe shader ─────────────────────────────────
-    const neonArr: [number, number, number] = [neon.r, neon.g, neon.b]
-    this.panelShaderMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uMap:    { value: drawPanel(proj) },
-        uReveal: { value: 0.0 },          // 0=hidden, 1=fully revealed (wipe progress)
-        uOpacity:{ value: 1.0 },
-        uNeon:   { value: new THREE.Vector3(...neonArr) },
-      },
-      vertexShader: revealVert,
-      fragmentShader: revealFrag,
-      transparent: true,
-      depthWrite: true,
-      side: THREE.FrontSide,
-    })
-    const panel = new THREE.Mesh(new THREE.PlaneGeometry(40, 19.5), this.panelShaderMat)
+    // ── Panel face ────────────────────────────────────────────────────
+    const panelMat = track(new THREE.MeshBasicMaterial({
+      map: new THREE.CanvasTexture(drawPanelCanvas(proj)),
+      transparent: true, depthWrite: true,
+      side: THREE.FrontSide, alphaTest: 0.01,
+    }), 1.0)
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(40, 19.5), panelMat)
     panel.frustumCulled = false
     panel.userData.isLabel = true
     panel.userData.onClick = () => window.open(proj.url, '_blank')
@@ -249,9 +213,6 @@ export class PanelEnv extends Environment {
   update(_t: number) {}
 
   protected setVisible(v: number) {
-    // Panel wipe: uReveal drives the left→right scan sweep
-    if (this.panelShaderMat) this.panelShaderMat.uniforms.uReveal.value = v
-    // Frame, poles, glow, particles fade normally
     for (const [mat, max] of this.fadeMats) mat.opacity = v * max
     if (this.particleMat) this.particleMat.opacity = v * 0.45
   }
