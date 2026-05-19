@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 export default defineConfig(({ command }) => ({
   // Dev: serve at '/' for easy local access
   // Build: '/neon-district/' for GitHub Pages deployment
-  base: command === 'build' ? '/neon-district/' : '/',
+  base: '/',
   server: { port: 4000 },
   build: {
     outDir: 'dist',
