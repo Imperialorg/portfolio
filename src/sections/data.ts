@@ -58,7 +58,7 @@ export const PROJECTS: Project[] = [
   {
     id: 'oris-ai',
     title: 'Oris — AI SRE',
-    subtitle: '🏆 Runner-up · TechSynapse 2026',
+    subtitle: 'Runner-up · TechSynapse 2026',
     desc: 'Autonomous Site Reliability Engineer: ingests production logs, PII-masks with Presidio, infers root cause via Gemini 2.0, opens GitHub PRs with fixes. Zero human touch.',
     tags: ['Python','Gemini 2.0','Presidio','LangChain','FastAPI'],
     url: 'https://github.com/Aerosane/oris',
@@ -69,13 +69,13 @@ export const PROJECTS: Project[] = [
   {
     id: 'vajragrid',
     title: 'VajraGrid',
-    subtitle: '🇮🇳 India Innovates 2026 · Bharat Mandapam',
+    subtitle: 'India Innovates 2026 · Bharat Mandapam',
     desc: 'AI-hardened power grid security: detects SCADA cyberattacks in 16s, 4-layer ML defense stack, adversarial training. Exhibited nationally at Bharat Mandapam.',
     tags: ['Python','PyTorch','SCADA','Adversarial ML','GridSec'],
     url: 'https://github.com/Aerosane/vajragridr',
     neonColor: '#ff00aa',
     district: 'AI DISTRICT',
-    icon: '⚡',
+    icon: '△',
   },
   {
     id: 'vidyamitra',
@@ -114,12 +114,12 @@ export const PROJECTS: Project[] = [
     id: 'hackathon',
     title: 'Hackathon Wins',
     subtitle: 'Hall of Fame',
-    desc: '🏆 Runner-up at TechSynapse 2026 (Oris AI SRE). 🇮🇳 National exhibition at India Innovates 2026, Bharat Mandapam, New Delhi (VajraGrid). 1st year, two nationals.',
+    desc: 'Runner-up at TechSynapse 2026 (Oris AI SRE). National exhibition at India Innovates 2026, Bharat Mandapam, New Delhi (VajraGrid). 1st year, two nationals.',
     tags: ['Oris AI','VajraGrid','TechSynapse','India Innovates'],
     url: 'https://github.com/Aerosane',
     neonColor: '#ffe642',
     district: 'HALL OF FAME',
-    icon: '🏆',
+    icon: '★',
   },
 ]
 
